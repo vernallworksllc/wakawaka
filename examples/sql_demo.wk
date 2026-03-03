@@ -1,0 +1,181 @@
+// Wakawaka SQL Integration Demo
+// Parameterized SQL queries — injection-safe by design
+// Run: python deltoo.py run examples/sql_demo.dt
+
+fn main() {
+    println("=== Wakawaka SQL Integration ===\n");
+
+    // Connect to SQLite (auto-creates if not exists)
+    let db = sql.connect("sqlite:demo.db");
+
+    // Create tables
+    db.exec(@sql`
+        CREATE TABLE IF NOT EXISTS users (
+            id    INTEGER PRIMARY KEY AUTOINCREMENT,
+            name  TEXT    NOT NULL,
+            email TEXT    UNIQUE,
+            age   INTEGER,
+            score REAL DEFAULT 0.0
+        )
+    `);
+
+    db.exec(@sql`
+        CREATE TABLE IF NOT EXISTS orders (
+            id      INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER REFERENCES users(id),
+            product TEXT,
+            amount  REAL,
+            ts      TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
+    // Insert data — parameters auto-escaped, no SQL injection possible
+    println("Inserting users...");
+    let users = [
+        ("Alice",  "alice@example.com",  30, 95.5),
+        ("Bob",    "bob@example.com",    25, 87.2),
+        ("Carol",  "carol@example.com",  35, 92.1),
+        ("Dave",   "dave@example.com",   28, 78.9),
+        ("Eve",    "eve@example.com",    32, 99.0),
+    ];
+
+    for u in users {
+        let name  = u[0];
+        let email = u[1];
+        let age   = u[2];
+        let score = u[3];
+        // All {variables} in @sql are parameterized — NEVER string concatenated
+        db.exec(@sql`
+            INSERT OR IGNORE INTO users (name, email, age, score)
+            VALUES ({name}, {email}, {age}, {score})
+        `);
+    }
+
+    // Simple SELECT
+    println("\n--- All users ---");
+    let all_users = db.query(@sql`SELECT * FROM users ORDER BY name`);
+    for user in all_users {
+        println(f"  [{user.id}] {user.name} (age {user.age}) score={user.score}");
+    }
+
+    // Parameterized filter
+    let min_age = 28;
+    let min_score = 85.0;
+    println(f"\n--- Users age >= {min_age} with score >= {min_score} ---");
+    let filtered = db.query(@sql`
+        SELECT name, age, score
+        FROM users
+        WHERE age >= {min_age}
+          AND score >= {min_score}
+        ORDER BY score DESC
+    `);
+    for u in filtered {
+        println(f"  {u.name}: age={u.age}, score={u.score}");
+    }
+
+    // Aggregate queries
+    println("\n--- Statistics ---");
+    let stats = db.query(@sql`
+        SELECT
+            COUNT(*)        AS total,
+            AVG(age)        AS avg_age,
+            AVG(score)      AS avg_score,
+            MAX(score)      AS max_score,
+            MIN(score)      AS min_score
+        FROM users
+    `)[0];
+    println(f"  Total users : {stats.total}");
+    println(f"  Average age : {stats.avg_age:.1f}");
+    println(f"  Average score: {stats.avg_score:.2f}");
+    println(f"  Max score   : {stats.max_score}");
+    println(f"  Min score   : {stats.min_score}");
+
+    // Insert orders
+    println("\nInserting orders...");
+    let order_data = [
+        (1, "Widget A", 29.99),
+        (1, "Widget B", 49.99),
+        (2, "Gadget X", 99.00),
+        (3, "Widget A", 29.99),
+        (3, "Premium Y", 149.99),
+        (5, "Ultimate Z", 299.99),
+    ];
+    for o in order_data {
+        let uid = o[0];
+        let prod = o[1];
+        let amt = o[2];
+        db.exec(@sql`
+            INSERT INTO orders (user_id, product, amount)
+            VALUES ({uid}, {prod}, {amt})
+        `);
+    }
+
+    // JOIN query
+    println("\n--- Orders with user names (JOIN) ---");
+    let joined = db.query(@sql`
+        SELECT u.name, o.product, o.amount
+        FROM orders o
+        JOIN users u ON u.id = o.user_id
+        ORDER BY o.amount DESC
+    `);
+    for row in joined {
+        println(f"  {row.name}: {row.product} = ${row.amount:.2f}");
+    }
+
+    // Aggregation with JOIN
+    println("\n--- Total spend per user ---");
+    let totals = db.query(@sql`
+        SELECT u.name, SUM(o.amount) AS total_spent
+        FROM orders o
+        JOIN users u ON u.id = o.user_id
+        GROUP BY u.name
+        ORDER BY total_spent DESC
+    `);
+    for row in totals {
+        println(f"  {row.name}: ${row.total_spent:.2f}");
+    }
+
+    // Transaction — atomic
+    println("\n--- Transaction (atomic transfer) ---");
+    let from_id = 1;
+    let to_id   = 2;
+    let points  = 10.0;
+
+    db.transaction(|tx| {
+        tx.exec(@sql`UPDATE users SET score = score - {points} WHERE id = {from_id}`);
+        tx.exec(@sql`UPDATE users SET score = score + {points} WHERE id = {to_id}`);
+    });
+
+    let after = db.query(@sql`SELECT name, score FROM users WHERE id IN ({from_id}, {to_id})`);
+    for u in after {
+        println(f"  {u.name}: score={u.score}");
+    }
+
+    // Dynamic query building (safe — still parameterized)
+    println("\n--- Dynamic search ---");
+    let search_term = "alice";
+    let results = db.query(@sql`
+        SELECT * FROM users
+        WHERE LOWER(name) LIKE {search_term}
+           OR LOWER(email) LIKE {search_term}
+    `);
+    println(f"Search '{search_term}': {results.len()} results");
+
+    // Update with condition
+    let bonus = 5.0;
+    let threshold = 90.0;
+    let updated = db.exec(@sql`
+        UPDATE users SET score = score + {bonus}
+        WHERE score >= {threshold}
+    `);
+    println(f"\nGave {bonus} bonus to {updated} high-scorers");
+
+    // Clean up
+    db.exec(@sql`DROP TABLE IF EXISTS orders`);
+    db.exec(@sql`DROP TABLE IF EXISTS users`);
+    db.close();
+
+    println("\nSQL demo complete!");
+}
+
+main();

@@ -1,0 +1,9 @@
+__pycache__/
+.claude/
+*.pyc
+*.o
+*.db
+/waka
+/hello
+/waka.c
+/hello.c

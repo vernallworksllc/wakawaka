@@ -1,0 +1,78 @@
+name: Build Wakawaka Binaries
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: waka-linux
+            binary: dist/waka
+          - os: windows-latest
+            artifact_name: waka-windows
+            binary: dist/waka.exe
+          - os: macos-latest
+            artifact_name: waka-macos
+            binary: dist/waka
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+
+      - name: Build binary
+        run: python build_waka.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.binary }}
+          if-no-files-found: error
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Rename binaries for release
+        run: |
+          mv artifacts/waka-linux/waka   artifacts/waka-linux
+          mv artifacts/waka-windows/waka.exe artifacts/waka-windows.exe
+          mv artifacts/waka-macos/waka   artifacts/waka-macos
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/waka-linux
+            artifacts/waka-windows.exe
+            artifacts/waka-macos
+          generate_release_notes: true

@@ -1,0 +1,2214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wakawaka Language User Guide - OpenCan.ai</title>
+<style>
+/* --- OpenCan.ai Theme (inlined for standalone use) --- */
+:root {
+    --bg-100: #0a0a0f;
+    --bg-200: #12121a;
+    --bg-300: #1a1a25;
+    --bg-400: #252532;
+    --text: #e4e4e7;
+    --text-muted: #71717a;
+    --accent: #06b6d4;
+    --accent-light: #22d3ee;
+    --btn-bg: #6366f1;
+    --btn-bg-hover: #4f46e5;
+    --border: #27272a;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --error: #ef4444;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+    background: var(--bg-100);
+    color: var(--text);
+    line-height: 1.7;
+    min-height: 100vh;
+    display: flex;
+}
+a { color: var(--accent-light); text-decoration: none; }
+a:hover { text-decoration: underline; }
+ul, ol { margin: 1rem 0 1rem 1.5rem; }
+li { margin-bottom: 0.5rem; }
+code {
+    background: var(--bg-300);
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.25rem;
+    font-family: 'SFMono-Regular', Consolas, Monaco, monospace;
+    font-size: 0.9em;
+    color: #f0abfc;
+}
+pre {
+    background: var(--bg-300);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+    border: 1px solid var(--border);
+    line-height: 1.5;
+}
+pre code { background: none; padding: 0; color: #e2e8f0; }
+table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
+th { background: var(--bg-200); font-weight: 600; color: var(--accent-light); }
+tr:hover { background: var(--bg-200); }
+/* --- Guide Layout: Sidebar + Main --- */
+html { scroll-behavior: smooth; }
+.sidebar {
+  width: 280px; background: var(--bg-200); position: fixed; top: 0; left: 0;
+  height: 100vh; overflow-y: auto; z-index: 100; border-right: 1px solid var(--border);
+  transition: transform 0.3s ease;
+}
+.sidebar-header {
+  padding: 24px 20px; border-bottom: 1px solid var(--border);
+  background: var(--bg-300);
+}
+.sidebar-header h1 {
+  font-size: 20px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.sidebar-header p { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+.sidebar nav { padding: 12px 0; }
+.sidebar nav a {
+  display: block; padding: 8px 20px; color: var(--text-muted); text-decoration: none;
+  font-size: 13px; border-left: 3px solid transparent; transition: all 0.2s;
+}
+.sidebar nav a:hover { color: #fff; background: rgba(255,255,255,0.05); border-left-color: var(--accent); }
+.sidebar nav a.active { color: var(--accent-light); border-left-color: var(--accent); background: rgba(6, 182, 212,0.08); }
+.sidebar nav .nav-section {
+  padding: 12px 20px 4px; font-size: 10px; text-transform: uppercase;
+  letter-spacing: 1.5px; color: var(--text-muted); font-weight: 700;
+}
+.main { margin-left: 280px; flex: 1; min-width: 0; }
+.topbar {
+  position: sticky; top: 0; z-index: 50; background: var(--bg-200);
+  border-bottom: 1px solid var(--border); padding: 12px 32px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.topbar-title { font-size: 14px; color: var(--text-muted); }
+.btn-pdf {
+  background: #6366f1; color: #fff; border: none; padding: 8px 20px;
+  border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;
+  transition: opacity 0.2s;
+}
+.btn-pdf:hover { opacity: 0.85; }
+.hamburger { display: none; background: none; border: none; color: #fff; font-size: 24px; cursor: pointer; }
+.content { max-width: 900px; margin: 0 auto; padding: 32px; }
+h2 {
+  font-size: 28px; color: #fff; margin: 48px 0 16px; padding-bottom: 12px;
+  border-bottom: 2px solid var(--accent);
+}
+h2:first-of-type { margin-top: 0; }
+h3 { font-size: 20px; color: #fff; margin: 32px 0 12px; }
+h4 { font-size: 16px; color: var(--accent-light); margin: 24px 0 8px; }
+p { margin-bottom: 12px; }
+.callout {
+  border-left: 4px solid var(--accent-light); background: rgba(34, 211, 238,0.08);
+  padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 16px 0;
+}
+.callout.warning { border-left-color: var(--warning); background: rgba(245,158,11,0.08); }
+.callout.success { border-left-color: var(--success); background: rgba(16,185,129,0.08); }
+.callout.danger { border-left-color: var(--error); background: rgba(239,68,68,0.08); }
+.callout strong { color: #fff; }
+.feature-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px; margin: 16px 0;
+}
+.feature-card {
+  background: var(--bg-200); border: 1px solid var(--border); border-radius: 1rem;
+  padding: 16px; transition: border-color 0.2s;
+}
+.feature-card:hover { border-color: var(--accent); }
+.feature-card h5 { color: #fff; margin-bottom: 6px; font-size: 14px; }
+.feature-card p { font-size: 13px; color: var(--text-muted); margin: 0; }
+footer {
+  text-align: center; padding: 32px; color: var(--text-muted);
+  font-size: 13px; border-top: 1px solid var(--border); margin-top: 48px;
+}
+footer a { color: var(--accent-light); text-decoration: none; }
+footer a:hover { text-decoration: underline; }
+@media print {
+  .sidebar, .topbar, .hamburger { display: none !important; }
+  .main { margin-left: 0 !important; }
+  body { background: #fff; color: #111; }
+  .content { max-width: 100%; padding: 0; }
+  h2 { border-bottom-color: #333; color: #111; page-break-after: avoid; }
+  h3, h4 { color: #111; page-break-after: avoid; }
+  pre { background: #f5f5f5; border-color: #ddd; color: #111; page-break-inside: avoid; }
+  code { background: #f0f0f0; color: #c00; }
+  table { page-break-inside: avoid; }
+  th { background: #333; color: #fff; }
+  td { border-bottom-color: #ddd; }
+  .callout { background: #f0f8ff; border-left-color: #333; }
+  .feature-card { background: #f9f9f9; border-color: #ddd; }
+  a { color: #0066cc; }
+  footer { display: none; }
+}
+@media (max-width: 768px) {
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+  .main { margin-left: 0; }
+  .hamburger { display: block; }
+  .content { padding: 20px 16px; }
+  h2 { font-size: 22px; }
+  .feature-grid { grid-template-columns: 1fr; }
+}
+.overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99; }
+.overlay.active { display: block; }
+</style>
+</head>
+<body>
+
+<div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <h1>Wakawaka</h1>
+    <p>User Guide &mdash; v1.0.0 &mdash; March 2026</p>
+  </div>
+  <nav>
+    <div class="nav-section">Getting Started</div>
+    <a href="#introduction">Introduction</a>
+    <a href="#cli">CLI Toolchain</a>
+    <a href="#quickstart">Quick Start</a>
+    <div class="nav-section">Language</div>
+    <a href="#lexical">Lexical Structure</a>
+    <a href="#variables">Variables &amp; Constants</a>
+    <a href="#types">Types</a>
+    <a href="#operators">Operators</a>
+    <a href="#control-flow">Control Flow</a>
+    <a href="#functions">Functions</a>
+    <a href="#classes">Classes &amp; OOP</a>
+    <a href="#enums">Enums</a>
+    <a href="#pattern-matching">Pattern Matching</a>
+    <a href="#error-handling">Error Handling</a>
+    <div class="nav-section">Advanced</div>
+    <a href="#concurrency">Concurrency</a>
+    <a href="#modules">Modules &amp; Imports</a>
+    <a href="#shell">Shell Integration</a>
+    <a href="#sql">SQL Integration</a>
+    <div class="nav-section">AI / ML</div>
+    <a href="#tensors">Tensor Computing</a>
+    <a href="#autodiff">Automatic Differentiation</a>
+    <a href="#pipelines">ML Pipelines</a>
+    <a href="#model-io">Model I/O</a>
+    <a href="#gpu">GPU Computing</a>
+    <div class="nav-section">Interop</div>
+    <a href="#ffi">Foreign Modules (FFI)</a>
+    <a href="#webserver">Web Server</a>
+    <div class="nav-section">Reference</div>
+    <a href="#ref-builtins">Builtin Functions</a>
+    <a href="#ref-string">String Methods</a>
+    <a href="#ref-list">List Methods</a>
+    <a href="#ref-map">Map Methods</a>
+    <a href="#ref-math">Math Module</a>
+    <a href="#ref-tensor">Tensor Reference</a>
+    <a href="#ref-ad">AD Reference</a>
+    <a href="#ref-pipeline">Pipeline Reference</a>
+    <a href="#ref-model">Model Reference</a>
+    <a href="#ref-ffi">FFI Reference</a>
+    <a href="#examples">Complete Examples</a>
+  </nav>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <button class="hamburger" onclick="toggleSidebar()">&#9776;</button>
+    <span class="topbar-title">Wakawaka Language &mdash; User Guide</span>
+    <button class="btn-pdf" onclick="window.print()">Download PDF</button>
+  </div>
+
+  <div class="content">
+
+<!-- ============================================================ -->
+<h2 id="introduction">1. Introduction</h2>
+
+<h3>What is Wakawaka?</h3>
+<p>Wakawaka is a modern, multi-paradigm programming language developed by <strong>OpenCan.ai</strong>. It combines the safety of Rust, the concurrency of Go, the expressiveness of Python, and the compile-time power of Zig into a single cohesive language. Wakawaka programs can be run interpreted or compiled to native binaries via C99 transpilation.</p>
+
+<div class="feature-grid">
+  <div class="feature-card"><h5>Safe by Default</h5><p>Option types prevent null errors. Parameterized queries prevent SQL injection. Shell escaping prevents command injection.</p></div>
+  <div class="feature-card"><h5>Fast &amp; Compiled</h5><p>Transpiles to C99 and compiles with gcc/clang for native performance. Also runs interpreted for rapid development.</p></div>
+  <div class="feature-card"><h5>Expressive</h5><p>Pattern matching, closures, pipe operator, f-strings, operator overloading, generics, and more.</p></div>
+  <div class="feature-card"><h5>Concurrent</h5><p>Goroutines, channels, actors, async/await, and defer for safe resource cleanup.</p></div>
+  <div class="feature-card"><h5>Integrated</h5><p>Built-in shell commands, SQL queries, Python interop, web server, and data science libraries.</p></div>
+  <div class="feature-card"><h5>Batteries Included</h5><p>Formatter, type checker, REPL, build system, and web server all ship with the toolchain.</p></div>
+</div>
+
+<h3>Design Philosophy</h3>
+<ul>
+  <li><strong>Safety by default</strong> &mdash; Memory safety via Option/Result types, no null pointer crashes, injection-safe shell and SQL</li>
+  <li><strong>Zero-cost abstractions</strong> &mdash; Generics, closures, and pattern matching compile to efficient native code</li>
+  <li><strong>Gradual typing</strong> &mdash; Type inference everywhere, explicit annotations when you want them</li>
+  <li><strong>Multi-paradigm</strong> &mdash; Supports OOP (classes, inheritance, interfaces), functional (closures, map/filter/reduce, pipes), and imperative styles</li>
+  <li><strong>Pragmatism</strong> &mdash; Python interop for accessing thousands of existing libraries</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="cli">2. CLI Toolchain</h2>
+
+<p>The <code>waka</code> command provides the full Wakawaka toolchain.</p>
+
+<h3><code>waka run &lt;file.wk&gt; [args...]</code> &mdash; Run a Program</h3>
+<p>Executes a Wakawaka program in interpreted mode.</p>
+<pre><code>waka run hello.wk
+waka run server.wk --port 8080
+waka run script.wk arg1 arg2     # args available via sys.argv</code></pre>
+
+<h3><code>waka build &lt;file.wk&gt; [-o output]</code> &mdash; Compile to Native Binary</h3>
+<p>Transpiles to C99 and compiles with gcc or clang. Produces a standalone executable.</p>
+<pre><code>waka build hello.wk              # produces ./hello
+waka build hello.wk -o myapp     # custom output name</code></pre>
+<div class="callout">
+<strong>Requirements:</strong> A C compiler (gcc or clang) must be installed. On Linux/macOS, <code>-lm</code> and <code>-lpthread</code> are linked automatically.
+</div>
+
+<h3><code>waka serve [dir] [--port PORT] [--host HOST]</code> &mdash; Web Server</h3>
+<p>Starts the built-in web server. Serves static files and executes <code>.wk</code> files as dynamic pages.</p>
+<pre><code>waka serve                       # serve current dir on port 8080
+waka serve ./public --port 3000  # custom directory and port
+waka serve --host 0.0.0.0       # bind to all interfaces</code></pre>
+
+<h3><code>waka repl</code> &mdash; Interactive REPL</h3>
+<p>Start an interactive session. Type code, press Enter on a blank line to execute. Type <code>exit</code> or Ctrl+D to quit.</p>
+<pre><code>wk&gt; let x = 42
+
+wk&gt; println(f"x = {x}")
+x = 42
+
+wk&gt; [1, 2, 3].map(|n| n * 2)
+=&gt; [2, 4, 6]</code></pre>
+
+<h3><code>waka fmt &lt;file.wk&gt; [--check]</code> &mdash; Format Source</h3>
+<p>Formats Wakawaka source code with consistent style (4-space indentation, K&amp;R braces).</p>
+<pre><code>waka fmt messy.wk                # format in place
+waka fmt messy.wk --check        # check only (exit 1 if needs formatting)</code></pre>
+
+<h3><code>waka check &lt;file.wk&gt;</code> &mdash; Type Check</h3>
+<p>Parses and type-checks without executing. Useful for CI/pre-commit validation.</p>
+<pre><code>waka check mylib.wk              # prints "mylib.wk: OK" or error</code></pre>
+
+<h3><code>waka version</code></h3>
+<pre><code>waka version                     # Wakawaka 1.0.0, Python 3.x</code></pre>
+
+<h4>Global Flags</h4>
+<table>
+  <tr><th>Flag</th><th>Description</th></tr>
+  <tr><td><code>--traceback</code></td><td>Show full Python stack trace on errors (debugging)</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="quickstart">3. Quick Start</h2>
+
+<h3>Hello World</h3>
+<p>Create a file <code>hello.wk</code>:</p>
+<pre><code>println("Hello, World!");</code></pre>
+<p>Run it:</p>
+<pre><code>waka run hello.wk</code></pre>
+<p>Compile and run:</p>
+<pre><code>waka build hello.wk -o hello
+./hello</code></pre>
+
+<h3>A Taste of Wakawaka</h3>
+<pre><code>// Variables and types
+let name = "Wakawaka";
+let version = 0.1;
+let features = ["safe", "fast", "expressive"];
+
+// F-string interpolation
+println(f"Welcome to {name} v{version}!");
+
+// Functional programming with pipes
+let result = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    |&gt; filter(|n| n % 2 == 0)
+    |&gt; map(|n| n ** 2)
+    |&gt; sum;
+println(f"Sum of squares of evens: {result}");  // 220
+
+// Pattern matching
+fn classify(n: int) -&gt; str {
+    return match n {
+        0 =&gt; "zero",
+        1..=9 =&gt; "small",
+        10..=99 =&gt; "medium",
+        _ =&gt; "large",
+    };
+}
+
+// Error handling with Result
+fn divide(a: float, b: float) -&gt; Result&lt;float, str&gt; {
+    if b == 0.0 { return err("division by zero"); }
+    return ok(a / b);
+}
+
+match divide(10.0, 3.0) {
+    ok(v) =&gt; println(f"Result: {v}"),
+    err(e) =&gt; println(f"Error: {e}"),
+}</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="lexical">4. Lexical Structure</h2>
+
+<h3>Comments</h3>
+<pre><code>// Single-line comment
+
+/* Multi-line
+   comment */</code></pre>
+
+<h3>Keywords</h3>
+<p>The following identifiers are reserved:</p>
+<pre><code>let    var    const   fn      class    struct   impl     interface
+enum   if     else    while   for      do       match    return
+break  continue       import  as       in       go       chan
+async  await  defer   unsafe  abstract extends  override module
+macro  true   false   none    some     ok       err      pub
+priv   static new     self    super    and      or       not
+is     pyblock        actor   spawn    receive  comptime</code></pre>
+
+<h3>Numeric Literals</h3>
+<table>
+  <tr><th>Type</th><th>Example</th><th>Description</th></tr>
+  <tr><td>Integer</td><td><code>42</code>, <code>1_000_000</code></td><td>Decimal integer (underscores for readability)</td></tr>
+  <tr><td>Hex</td><td><code>0xFF</code>, <code>0x1A2B</code></td><td>Hexadecimal</td></tr>
+  <tr><td>Binary</td><td><code>0b1010</code></td><td>Binary</td></tr>
+  <tr><td>Octal</td><td><code>0o77</code></td><td>Octal</td></tr>
+  <tr><td>Float</td><td><code>3.14</code>, <code>1.0e-5</code></td><td>IEEE 64-bit floating point</td></tr>
+</table>
+
+<h3>String Literals</h3>
+<table>
+  <tr><th>Type</th><th>Syntax</th><th>Description</th></tr>
+  <tr><td>Basic</td><td><code>"hello\nworld"</code></td><td>Standard string with escape sequences (<code>\n \t \r \\ \" \' \0</code>)</td></tr>
+  <tr><td>Raw</td><td><code>r"no\nescape"</code></td><td>No escape processing</td></tr>
+  <tr><td>Byte</td><td><code>b"bytes"</code></td><td>Byte string</td></tr>
+  <tr><td>F-string</td><td><code>f"Hello, {name}!"</code></td><td>String interpolation with expressions in <code>{}</code></td></tr>
+  <tr><td>Shell</td><td><code>$`ls -la {dir}`</code></td><td>Execute shell command, auto-escape variables</td></tr>
+  <tr><td>SQL</td><td><code>@sql`SELECT * FROM t WHERE id = {x}`</code></td><td>Parameterized SQL query</td></tr>
+</table>
+
+<h3>F-String Format Specifiers</h3>
+<pre><code>let pi = 3.14159;
+println(f"{pi:.2f}");    // "3.14" (2 decimal places)
+println(f"{255:x}");     // "ff" (hex)
+println(f"{10:b}");      // "1010" (binary)
+println(f"{42:o}");      // "52" (octal)</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="variables">5. Variables &amp; Constants</h2>
+
+<h3>Declarations</h3>
+<pre><code>let x = 42;                    // immutable, type inferred
+var y = "hello";               // mutable
+const PI = 3.14159;            // compile-time constant
+
+let z: int = 0;                // explicit type annotation
+var items: []str = [];         // typed mutable array
+let maybe: ?str = none;        // optional type</code></pre>
+
+<div class="callout">
+<strong>Immutability:</strong> Variables declared with <code>let</code> cannot be reassigned. Use <code>var</code> when you need to modify the value after declaration.
+</div>
+
+<h3>Type Inference</h3>
+<p>The compiler infers types from the right-hand side expression. Explicit annotations are optional but allowed everywhere.</p>
+<pre><code>let a = 42;          // inferred: int
+let b = 3.14;        // inferred: float
+let c = true;        // inferred: bool
+let d = "hello";     // inferred: str
+let e = [1, 2, 3];   // inferred: []int
+let f = {"k": 1};    // inferred: map[str]int</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="types">6. Types</h2>
+
+<h3>Primitive Types</h3>
+<table>
+  <tr><th>Type</th><th>Description</th><th>Example</th></tr>
+  <tr><td><code>int</code></td><td>64-bit signed integer</td><td><code>42</code></td></tr>
+  <tr><td><code>float</code></td><td>64-bit IEEE floating point</td><td><code>3.14</code></td></tr>
+  <tr><td><code>bool</code></td><td>Boolean</td><td><code>true</code>, <code>false</code></td></tr>
+  <tr><td><code>str</code></td><td>UTF-8 string</td><td><code>"hello"</code></td></tr>
+  <tr><td><code>byte</code></td><td>Single byte (u8)</td><td></td></tr>
+  <tr><td><code>rune</code></td><td>Unicode code point</td><td></td></tr>
+</table>
+
+<h3>Sized Integer Types</h3>
+<p>Signed: <code>i8</code>, <code>i16</code>, <code>i32</code>, <code>i64</code>. Unsigned: <code>u8</code>, <code>u16</code>, <code>u32</code>, <code>u64</code>. Sized floats: <code>f32</code>, <code>f64</code>.</p>
+
+<h3>Collection Types</h3>
+<table>
+  <tr><th>Type</th><th>Syntax</th><th>Example</th></tr>
+  <tr><td>Array (dynamic)</td><td><code>[]T</code></td><td><code>[1, 2, 3]</code></td></tr>
+  <tr><td>Array (fixed)</td><td><code>[N]T</code></td><td><code>[10]int</code></td></tr>
+  <tr><td>Map</td><td><code>map[K]V</code></td><td><code>{"a": 1, "b": 2}</code></td></tr>
+  <tr><td>Tuple</td><td><code>(T1, T2, ...)</code></td><td><code>(1, "hello", 3.14)</code></td></tr>
+</table>
+
+<h3>Option Type</h3>
+<p>Represents a value that may or may not exist. Prevents null pointer errors.</p>
+<pre><code>let maybe: ?int = some(42);
+let nothing: ?str = none;
+
+match maybe {
+    some(v) =&gt; println(f"Got: {v}"),
+    none    =&gt; println("Nothing"),
+}</code></pre>
+
+<h3>Result Type</h3>
+<p>Represents either success or failure. Forces explicit error handling.</p>
+<pre><code>let good: Result&lt;int, str&gt; = ok(42);
+let bad: Result&lt;int, str&gt; = err("failed");
+
+match good {
+    ok(v)  =&gt; println(f"Success: {v}"),
+    err(e) =&gt; println(f"Error: {e}"),
+}</code></pre>
+
+<h3>Channel Type</h3>
+<pre><code>let ch = chan&lt;int&gt;(10);    // buffered channel with capacity 10</code></pre>
+
+<h3>Function Types</h3>
+<pre><code>let f: fn(int, int) -&gt; int = |a, b| a + b;</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="operators">7. Operators</h2>
+
+<h3>Arithmetic Operators</h3>
+<table>
+  <tr><th>Operator</th><th>Description</th><th>Example</th></tr>
+  <tr><td><code>+</code></td><td>Addition / string concatenation</td><td><code>3 + 4</code> &rarr; <code>7</code></td></tr>
+  <tr><td><code>-</code></td><td>Subtraction</td><td><code>10 - 3</code> &rarr; <code>7</code></td></tr>
+  <tr><td><code>*</code></td><td>Multiplication</td><td><code>6 * 7</code> &rarr; <code>42</code></td></tr>
+  <tr><td><code>/</code></td><td>Division</td><td><code>10 / 3</code> &rarr; <code>3</code></td></tr>
+  <tr><td><code>%</code></td><td>Modulo</td><td><code>10 % 3</code> &rarr; <code>1</code></td></tr>
+  <tr><td><code>**</code></td><td>Exponentiation</td><td><code>2 ** 10</code> &rarr; <code>1024</code></td></tr>
+</table>
+
+<h3>Comparison Operators</h3>
+<table>
+  <tr><th>Operator</th><th>Description</th></tr>
+  <tr><td><code>==</code>, <code>!=</code></td><td>Equal, not equal</td></tr>
+  <tr><td><code>&lt;</code>, <code>&gt;</code></td><td>Less than, greater than</td></tr>
+  <tr><td><code>&lt;=</code>, <code>&gt;=</code></td><td>Less or equal, greater or equal</td></tr>
+</table>
+
+<h3>Logical Operators</h3>
+<table>
+  <tr><th>Operator</th><th>Keyword</th><th>Description</th></tr>
+  <tr><td><code>&amp;&amp;</code></td><td><code>and</code></td><td>Logical AND</td></tr>
+  <tr><td><code>||</code></td><td><code>or</code></td><td>Logical OR</td></tr>
+  <tr><td><code>!</code></td><td><code>not</code></td><td>Logical NOT</td></tr>
+</table>
+
+<h3>Bitwise Operators</h3>
+<table>
+  <tr><th>Operator</th><th>Description</th></tr>
+  <tr><td><code>&amp;</code></td><td>Bitwise AND</td></tr>
+  <tr><td><code>|</code></td><td>Bitwise OR</td></tr>
+  <tr><td><code>^</code></td><td>Bitwise XOR</td></tr>
+  <tr><td><code>~</code></td><td>Bitwise NOT</td></tr>
+  <tr><td><code>&lt;&lt;</code></td><td>Left shift</td></tr>
+  <tr><td><code>&gt;&gt;</code></td><td>Right shift</td></tr>
+</table>
+
+<h3>Assignment Operators</h3>
+<p><code>=</code>, <code>+=</code>, <code>-=</code>, <code>*=</code>, <code>/=</code>, <code>%=</code>, <code>**=</code>, <code>&amp;=</code>, <code>|=</code>, <code>^=</code>, <code>&lt;&lt;=</code>, <code>&gt;&gt;=</code></p>
+
+<h3>Special Operators</h3>
+<table>
+  <tr><th>Operator</th><th>Name</th><th>Description</th><th>Example</th></tr>
+  <tr><td><code>|&gt;</code></td><td>Pipe</td><td>Passes left value as first argument to right function</td><td><code>data |&gt; filter(f) |&gt; map(g)</code></td></tr>
+  <tr><td><code>?.</code></td><td>Optional chain</td><td>Safe member access, returns <code>none</code> if object is <code>none</code></td><td><code>obj?.field</code></td></tr>
+  <tr><td><code>??</code></td><td>Null coalesce</td><td>Returns left if not <code>none</code>, else right</td><td><code>val ?? default</code></td></tr>
+  <tr><td><code>?</code></td><td>Propagate</td><td>Unwraps Result, returns early if <code>err</code></td><td><code>risky()?</code></td></tr>
+  <tr><td><code>..</code></td><td>Range (exclusive)</td><td>Creates range [start, end)</td><td><code>0..10</code></td></tr>
+  <tr><td><code>..=</code></td><td>Range (inclusive)</td><td>Creates range [start, end]</td><td><code>0..=10</code></td></tr>
+  <tr><td><code>as</code></td><td>Cast</td><td>Type conversion</td><td><code>x as float</code></td></tr>
+  <tr><td><code>&lt;-</code></td><td>Channel send</td><td>Send value to channel</td><td><code>ch &lt;- 42</code></td></tr>
+  <tr><td><code>? :</code></td><td>Ternary</td><td>Conditional expression</td><td><code>x &gt; 0 ? "pos" : "neg"</code></td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="control-flow">8. Control Flow</h2>
+
+<h3>If / Else</h3>
+<pre><code>if x &gt; 0 {
+    println("positive");
+} else if x &lt; 0 {
+    println("negative");
+} else {
+    println("zero");
+}</code></pre>
+
+<h3>While Loop</h3>
+<pre><code>var count = 0;
+while count &lt; 5 {
+    println(f"count = {count}");
+    count += 1;
+}</code></pre>
+
+<h3>Do-While Loop</h3>
+<pre><code>var attempt = 0;
+do {
+    attempt += 1;
+    println(f"Attempt {attempt}");
+} while attempt &lt; 3;</code></pre>
+
+<h3>For-In Loop</h3>
+<pre><code>// Range iteration
+for i in 0..5 {
+    print(f"{i} ");        // 0 1 2 3 4
+}
+
+// Inclusive range
+for i in 1..=5 {
+    print(f"{i} ");        // 1 2 3 4 5
+}
+
+// Collection iteration
+let names = ["Alice", "Bob", "Carol"];
+for name in names {
+    println(f"Hello, {name}!");
+}</code></pre>
+
+<h3>C-Style For Loop</h3>
+<pre><code>for (let i = 0; i &lt; 10; i += 1) {
+    print(f"{i} ");
+}</code></pre>
+
+<h3>Labeled Break &amp; Continue</h3>
+<pre><code>outer:
+for i in 0..10 {
+    for j in 0..10 {
+        if i + j &gt; 15 {
+            break outer;       // breaks out of both loops
+        }
+    }
+}</code></pre>
+
+<h3>Match (Pattern Matching)</h3>
+<pre><code>match value {
+    0        =&gt; println("zero"),
+    1..=9    =&gt; println("small"),
+    10..=99  =&gt; println("medium"),
+    _        =&gt; println("large"),
+}</code></pre>
+<p>See <a href="#pattern-matching">Pattern Matching</a> for full details.</p>
+
+<h3>Defer</h3>
+<p>Deferred statements execute in reverse order when the enclosing function returns.</p>
+<pre><code>fn process() {
+    let f = open("data.txt");
+    defer close(f);           // always runs on function exit
+    defer println("cleanup");
+
+    // ... work with file ...
+}
+// On exit: prints "cleanup", then closes file</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="functions">9. Functions</h2>
+
+<h3>Basic Declaration</h3>
+<pre><code>fn add(a: int, b: int) -&gt; int {
+    return a + b;
+}
+
+fn greet(name: str) {
+    println(f"Hello, {name}!");
+}</code></pre>
+
+<h3>Multiple Return Values</h3>
+<pre><code>fn divmod(a: int, b: int) -&gt; (int, int) {
+    return a / b, a % b;
+}
+
+let q, r = divmod(17, 5);   // q=3, r=2</code></pre>
+
+<h3>Default Parameters</h3>
+<pre><code>fn greet(name: str, greeting: str = "Hello") -&gt; str {
+    return f"{greeting}, {name}!";
+}
+
+greet("Alice");                  // "Hello, Alice!"
+greet("Bob", greeting: "Hi");    // "Hi, Bob!"</code></pre>
+
+<h3>Variadic Functions</h3>
+<pre><code>fn sum(..nums: []int) -&gt; int {
+    return nums.reduce(|a, b| a + b, 0);
+}
+
+sum(1, 2, 3, 4, 5);   // 15</code></pre>
+
+<h3>Closures (Anonymous Functions)</h3>
+<pre><code>let double = |x| x * 2;
+let add = |a, b| a + b;
+
+// Multi-line closure
+let process = |data| {
+    let filtered = data.filter(|x| x &gt; 0);
+    return filtered.sum();
+};
+
+// Used in higher-order functions
+let evens = [1, 2, 3, 4, 5].filter(|n| n % 2 == 0);
+let doubled = evens.map(|n| n * 2);</code></pre>
+
+<h3>Higher-Order Functions</h3>
+<pre><code>fn make_adder(n: int) -&gt; fn(int) -&gt; int {
+    return |x| x + n;
+}
+
+fn compose(f: fn, g: fn) -&gt; fn {
+    return |x| f(g(x));
+}
+
+let add5 = make_adder(5);
+let mul3 = |x| x * 3;
+let add5_then_mul3 = compose(mul3, add5);
+println(add5_then_mul3(10));   // 45</code></pre>
+
+<h3>Generic Functions</h3>
+<pre><code>fn max&lt;T: Ordered&gt;(a: T, b: T) -&gt; T {
+    return a &gt; b ? a : b;
+}
+
+fn swap&lt;T&gt;(a: T, b: T) -&gt; (T, T) {
+    return b, a;
+}</code></pre>
+
+<h3>Async Functions</h3>
+<pre><code>async fn fetch_data(url: str) -&gt; Result&lt;str, str&gt; {
+    let resp = await http.get(url);
+    return ok(resp);
+}
+
+let data = await fetch_data("https://api.example.com");</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="classes">10. Classes &amp; OOP</h2>
+
+<h3>Structs (Data Only)</h3>
+<pre><code>struct Point {
+    x: float,
+    y: float,
+}
+
+let p = Point { x: 1.0, y: 2.0 };
+println(f"({p.x}, {p.y})");</code></pre>
+
+<h3>Impl Blocks (Methods for Structs)</h3>
+<pre><code>impl Point {
+    fn distance(self, other: Point) -&gt; float {
+        let dx = self.x - other.x;
+        let dy = self.y - other.y;
+        return math.sqrt(dx*dx + dy*dy);
+    }
+}</code></pre>
+
+<h3>Classes</h3>
+<pre><code>class Animal {
+    var name: str;
+    var sound: str;
+
+    fn new(name: str, sound: str) -&gt; Animal {
+        return Animal { name: name, sound: sound };
+    }
+
+    fn speak(self) -&gt; str {
+        return f"{self.name} says {self.sound}!";
+    }
+}</code></pre>
+
+<h3>Inheritance</h3>
+<pre><code>class Dog extends Animal {
+    var breed: str;
+
+    fn new(name: str, breed: str) -&gt; Dog {
+        return Dog { name: name, sound: "woof", breed: breed };
+    }
+
+    override fn speak(self) -&gt; str {
+        return f"{self.name} the {self.breed} barks!";
+    }
+}</code></pre>
+
+<h3>Abstract Classes</h3>
+<pre><code>abstract class Shape {
+    var color: str;
+
+    abstract fn area(self) -&gt; float;
+    abstract fn perimeter(self) -&gt; float;
+
+    fn describe(self) -&gt; str {
+        return f"[{self.color}] area={self.area()}";
+    }
+}
+
+class Circle extends Shape {
+    var radius: float;
+
+    fn new(r: float, color: str) -&gt; Circle {
+        return Circle { radius: r, color: color };
+    }
+
+    override fn area(self) -&gt; float {
+        return math.PI * self.radius ** 2;
+    }
+
+    override fn perimeter(self) -&gt; float {
+        return 2.0 * math.PI * self.radius;
+    }
+}</code></pre>
+
+<h3>Interfaces</h3>
+<pre><code>interface Drawable {
+    fn draw(self);
+    fn area(self) -&gt; float;
+}
+
+interface Comparable {
+    fn compareTo(self, other: any) -&gt; int;
+}</code></pre>
+
+<h3>Operator Overloading</h3>
+<pre><code>class Vec2 {
+    var x: float;
+    var y: float;
+
+    fn operator+(self, other: Vec2) -&gt; Vec2 {
+        return Vec2 { x: self.x + other.x, y: self.y + other.y };
+    }
+
+    fn operator==(self, other: Vec2) -&gt; bool {
+        return self.x == other.x and self.y == other.y;
+    }
+
+    fn operator&lt;(self, other: Vec2) -&gt; bool {
+        return self.x &lt; other.x;
+    }
+}
+
+let a = Vec2 { x: 1.0, y: 2.0 };
+let b = Vec2 { x: 3.0, y: 4.0 };
+let c = a + b;    // Vec2 { x: 4.0, y: 6.0 }</code></pre>
+
+<h3>Generic Classes</h3>
+<pre><code>class Stack&lt;T&gt; {
+    var items: []T;
+
+    fn new() -&gt; Stack&lt;T&gt; {
+        return Stack { items: [] };
+    }
+
+    fn push(var self, item: T) {
+        self.items.push(item);
+    }
+
+    fn pop(var self) -&gt; ?T {
+        if self.items.isEmpty() { return none; }
+        return some(self.items.pop());
+    }
+
+    fn peek(self) -&gt; ?T {
+        if self.items.isEmpty() { return none; }
+        return some(self.items.last());
+    }
+
+    fn size(self) -&gt; int { return self.items.len(); }
+}
+
+let stack = Stack&lt;int&gt;.new();
+stack.push(1);
+stack.push(2);
+let val = stack.pop();   // some(2)</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="enums">11. Enums</h2>
+
+<h3>Simple Enums</h3>
+<pre><code>enum Color { Red, Green, Blue }
+enum Status { Pending, Active, Completed }
+
+let c = Color.Red;</code></pre>
+
+<h3>Enums with Associated Data</h3>
+<pre><code>enum Shape {
+    Circle(float),
+    Rectangle(float, float),
+    Triangle(float, float, float),
+}
+
+let s = Shape.Circle(5.0);
+let r = Shape.Rectangle(4.0, 6.0);</code></pre>
+
+<h3>Pattern Matching on Enums</h3>
+<pre><code>match shape {
+    Shape.Circle(r) =&gt; println(f"Circle with radius {r}"),
+    Shape.Rectangle(w, h) =&gt; println(f"Rectangle {w}x{h}"),
+    Shape.Triangle(a, b, c) =&gt; println(f"Triangle {a},{b},{c}"),
+}</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="pattern-matching">12. Pattern Matching</h2>
+
+<p>The <code>match</code> expression supports many pattern types:</p>
+
+<h3>Literal Patterns</h3>
+<pre><code>match n {
+    0 =&gt; "zero",
+    1 =&gt; "one",
+    42 =&gt; "the answer",
+    _ =&gt; "other",
+}</code></pre>
+
+<h3>Range Patterns</h3>
+<pre><code>match score {
+    0..=59 =&gt; "F",
+    60..=69 =&gt; "D",
+    70..=79 =&gt; "C",
+    80..=89 =&gt; "B",
+    90..=100 =&gt; "A",
+}</code></pre>
+
+<h3>Binding Patterns</h3>
+<pre><code>match maybe_value {
+    some(x) =&gt; println(f"Got {x}"),
+    none =&gt; println("Nothing"),
+}
+
+match result {
+    ok(data) =&gt; process(data),
+    err(msg) =&gt; println(f"Error: {msg}"),
+}</code></pre>
+
+<h3>Tuple Patterns</h3>
+<pre><code>match pair {
+    (0, y) =&gt; println(f"x is zero, y is {y}"),
+    (x, 0) =&gt; println(f"x is {x}, y is zero"),
+    (x, y) =&gt; println(f"({x}, {y})"),
+}</code></pre>
+
+<h3>Struct Patterns</h3>
+<pre><code>match point {
+    Point { x: 0.0, y: 0.0 } =&gt; println("origin"),
+    Point { x, y } =&gt; println(f"({x}, {y})"),
+}</code></pre>
+
+<h3>Or Patterns</h3>
+<pre><code>match day {
+    "Saturday" | "Sunday" =&gt; println("weekend"),
+    _ =&gt; println("weekday"),
+}</code></pre>
+
+<h3>Guard Expressions</h3>
+<pre><code>match n {
+    x if x &gt; 0 =&gt; println("positive"),
+    x if x &lt; 0 =&gt; println("negative"),
+    _ =&gt; println("zero"),
+}</code></pre>
+
+<h3>Wildcard</h3>
+<pre><code>match value {
+    _ =&gt; println("matches anything"),
+}</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="error-handling">13. Error Handling</h2>
+
+<h3>Result Type</h3>
+<pre><code>fn parse_int(s: str) -&gt; Result&lt;int, str&gt; {
+    let n = int(s);
+    if n == 0 and s != "0" {
+        return err(f"cannot parse '{s}' as int");
+    }
+    return ok(n);
+}
+
+match parse_int("42") {
+    ok(n) =&gt; println(f"Parsed: {n}"),
+    err(e) =&gt; println(f"Error: {e}"),
+}</code></pre>
+
+<h3>Error Propagation (?)</h3>
+<pre><code>fn process(input: str) -&gt; Result&lt;int, str&gt; {
+    let a = parse_int(input)?;     // returns err early if parse fails
+    let b = divide(a, 2)?;        // returns err early if divide fails
+    return ok(b);
+}</code></pre>
+
+<h3>Option Type</h3>
+<pre><code>fn find(items: []str, target: str) -&gt; ?int {
+    for i in 0..items.len() {
+        if items[i] == target { return some(i); }
+    }
+    return none;
+}
+
+let idx = find(names, "Alice");
+match idx {
+    some(i) =&gt; println(f"Found at index {i}"),
+    none =&gt; println("Not found"),
+}</code></pre>
+
+<h3>Optional Chaining</h3>
+<pre><code>let city = user?.address?.city;   // none if any step is none</code></pre>
+
+<h3>Null Coalescing</h3>
+<pre><code>let name = user?.name ?? "Anonymous";</code></pre>
+
+<h3>Type Checking Builtins</h3>
+<pre><code>isNone(value)    // true if value is none
+isSome(value)    // true if value is some(...)
+isOk(value)      // true if value is ok(...)
+isErr(value)     // true if value is err(...)</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="concurrency">14. Concurrency</h2>
+
+<h3>Goroutines</h3>
+<p>Spawn lightweight background threads with <code>go</code>:</p>
+<pre><code>fn worker(id: int) {
+    println(f"Worker {id} running");
+}
+
+go worker(1);
+go worker(2);
+go worker(3);
+sleep(1.0);    // wait for goroutines to finish</code></pre>
+
+<h3>Channels</h3>
+<pre><code>let ch = chan&lt;str&gt;(10);      // buffered channel, capacity 10
+
+// Send
+go fn() {
+    ch &lt;- "hello";
+    ch &lt;- "world";
+}();
+
+// Receive
+let msg1 = recv(ch);
+let msg2 = recv(ch);
+println(f"{msg1} {msg2}");  // "hello world"</code></pre>
+
+<h3>Producer-Consumer Pattern</h3>
+<pre><code>fn producer(ch: chan, id: int) {
+    for i in 0..3 {
+        ch &lt;- f"worker-{id} item-{i}";
+    }
+}
+
+let ch = chan&lt;str&gt;(20);
+go producer(ch, 1);
+go producer(ch, 2);
+go producer(ch, 3);
+
+sleep(0.5);
+// Receive all messages...</code></pre>
+
+<h3>Actor Model</h3>
+<pre><code>actor Counter {
+    var count: int;
+
+    fn new(initial: int) -&gt; Counter {
+        return Counter { count: initial };
+    }
+
+    fn increment(var self, n: int) {
+        self.count += n;
+    }
+
+    fn get(self) -&gt; int {
+        return self.count;
+    }
+}
+
+let c = spawn Counter.new(0);
+// Actors provide thread-safe state management</code></pre>
+
+<h3>Defer (Resource Cleanup)</h3>
+<pre><code>fn with_resource() {
+    let res = acquire_resource();
+    defer release(res);            // always runs on exit
+
+    // If an error occurs here, resource is still released
+    process(res);
+}
+
+// Multiple defers execute in reverse (LIFO) order
+fn multi_defer() {
+    defer println("third");
+    defer println("second");
+    defer println("first");
+}
+// Prints: first, second, third</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="modules">15. Modules &amp; Imports</h2>
+
+<h3>Native Wakawaka Imports</h3>
+<pre><code>// mymath.wk
+fn add(a: int, b: int) -&gt; int {
+    return a + b;
+}
+let PI = 3.14159;</code></pre>
+<pre><code>// main.wk
+import "mymath.wk" as mm;
+
+fn main() {
+    println(f"add(3, 4) = {mm.add(3, 4)}");
+    println(f"PI = {mm.PI}");
+}
+main();</code></pre>
+
+<div class="callout">
+<strong>Module imports work in both interpreted and compiled mode.</strong> The compiler creates a namespace map for each imported module, preventing name collisions.
+</div>
+
+<h3>Python Imports</h3>
+<pre><code>import python "numpy" as np;
+import python "json" as pyjson;
+import python "datetime" as dt;
+
+let arr = np.array([1, 2, 3, 4, 5]);
+let mean = np.mean(arr);
+println(f"Mean: {mean}");</code></pre>
+
+<h3>Module Declarations</h3>
+<pre><code>module Utils {
+    fn double(x: int) -&gt; int {
+        return x * 2;
+    }
+}
+
+Utils.double(21);    // 42</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="shell">16. Shell Integration</h2>
+
+<h3>Shell Command Literals</h3>
+<pre><code>let cwd = $`pwd`.trim();
+let files = $`ls -la`.lines();
+let date = $`date`.trim();
+println(f"Current directory: {cwd}");</code></pre>
+
+<h3>Safe Variable Interpolation</h3>
+<p>Variables in shell literals are automatically escaped, preventing command injection:</p>
+<pre><code>let filename = "my file.txt";
+let content = $`cat {filename}`;       // safe: spaces handled
+
+let user_input = "'; rm -rf /; echo '";
+$`echo {user_input}`;                  // safe: no injection</code></pre>
+
+<h3>Processing Shell Output</h3>
+<pre><code>// Get lines as a list
+let log_lines = $`cat /var/log/app.log`.trim().lines();
+
+// Count files
+let wk_files = $`find . -name "*.wk"`.trim().lines();
+println(f"Found {wk_files.len()} .wk files");
+
+// Chain with string methods
+let first_five = $`ls -la`.lines().slice(0, 5);
+for line in first_five {
+    println(f"  {line}");
+}</code></pre>
+
+<div class="callout warning">
+<strong>Compiled mode note:</strong> Shell commands are executed via <code>popen()</code> in the C runtime, capturing stdout. Stderr is not captured by default.
+</div>
+
+<!-- ============================================================ -->
+<h2 id="sql">17. SQL Integration</h2>
+
+<h3>Connecting to a Database</h3>
+<pre><code>let db = sql.connect("sqlite:myapp.db");</code></pre>
+
+<h3>Parameterized Queries</h3>
+<p>All <code>{variables}</code> in <code>@sql</code> literals are parameterized &mdash; SQL injection is impossible:</p>
+<pre><code>let min_age = 30;
+let users = db.query(@sql`
+    SELECT * FROM users
+    WHERE age &gt;= {min_age}
+    ORDER BY name
+`);</code></pre>
+
+<h3>Insert / Update / Delete</h3>
+<pre><code>let name = "Alice";
+let email = "alice@example.com";
+db.exec(@sql`
+    INSERT INTO users (name, email)
+    VALUES ({name}, {email})
+`);
+
+let new_score = 95.5;
+let id = 1;
+db.exec(@sql`UPDATE users SET score = {new_score} WHERE id = {id}`);</code></pre>
+
+<h3>Transactions</h3>
+<pre><code>db.transaction(|tx| {
+    tx.exec(@sql`UPDATE accounts SET balance -= 100 WHERE id = 1`);
+    tx.exec(@sql`UPDATE accounts SET balance += 100 WHERE id = 2`);
+    // Auto-commit on success, auto-rollback on error
+});</code></pre>
+
+<h3>Accessing Results</h3>
+<pre><code>let users = db.query(@sql`SELECT id, name, email FROM users`);
+for user in users {
+    println(f"[{user.id}] {user.name} ({user.email})");
+}</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="tensors">18. Tensor Computing</h2>
+
+<p>Wakawaka has first-class tensor support for numerical and machine-learning workloads. Tensors are n-dimensional arrays of double-precision floats with broadcasting, element-wise arithmetic, and linear algebra operations built in. No external dependencies required.</p>
+
+<h3>Creating Tensors</h3>
+<pre><code>// From explicit data
+let a = tensor.from([1.0, 2.0, 3.0, 4.0]);
+let matrix = tensor.from([[1, 2], [3, 4]]);
+
+// Factory functions
+let z = tensor.zeros([3, 3]);          // 3x3 zeros
+let o = tensor.ones([2, 4]);           // 2x4 ones
+let I = tensor.eye(4);                 // 4x4 identity
+let r = tensor.rand([3, 3]);           // 3x3 random [0,1)
+let seq = tensor.arange(0, 10, 2);     // [0, 2, 4, 6, 8]
+let lin = tensor.linspace(0, 1, 5);    // [0, 0.25, 0.5, 0.75, 1.0]</code></pre>
+
+<h3>Arithmetic &amp; Broadcasting</h3>
+<pre><code>let a = tensor.from([1, 2, 3]);
+let b = tensor.from([10, 20, 30]);
+
+let sum = a + b;        // [11, 22, 33]
+let diff = b - a;       // [9, 18, 27]
+let prod = a * b;       // [10, 40, 90]  element-wise
+let quot = b / a;       // [10, 10, 10]</code></pre>
+
+<h3>Reductions &amp; Properties</h3>
+<pre><code>let t = tensor.from([3.0, 1.0, 4.0, 1.0, 5.0]);
+
+println(t.sum());       // 14.0
+println(t.mean());      // 2.8
+println(t.min());       // 1.0
+println(t.max());       // 5.0
+println(t.argmax());    // 4  (index of 5.0)
+println(t.shape());     // [5]
+println(t.ndim);        // 1
+println(t.size);        // 5</code></pre>
+
+<h3>Reshaping &amp; Linear Algebra</h3>
+<pre><code>let a = tensor.arange(0, 6);
+let m = a.reshape([2, 3]);     // 2x3 matrix
+let mt = m.transpose();        // 3x2 matrix
+let flat = m.flatten();        // back to 1D
+
+// Matrix multiplication
+let A = tensor.from([[1, 2], [3, 4]]);
+let B = tensor.from([[5, 6], [7, 8]]);
+let C = A.matmul(B);           // [[19, 22], [43, 50]]
+
+// Dot product
+let v1 = tensor.from([1, 2, 3]);
+let v2 = tensor.from([4, 5, 6]);
+println(v1.dot(v2));            // 32.0</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="autodiff">19. Automatic Differentiation</h2>
+
+<p>The <code>ad</code> module provides forward-mode automatic differentiation using dual numbers. Compute exact gradients of arbitrary functions &mdash; no numerical approximation, no symbolic math engine.</p>
+
+<h3>Dual Numbers</h3>
+<pre><code>// Create a dual number: value + derivative
+let x = ad.dual(3.0, 1.0);    // x = 3, dx/dx = 1
+
+// Arithmetic propagates derivatives automatically
+let y = x * x;                 // value = 9, deriv = 6  (d/dx of x^2 at x=3)
+println(ad.value(y));          // 9.0
+println(ad.deriv(y));          // 6.0</code></pre>
+
+<h3>Computing Gradients</h3>
+<pre><code>// Define a function
+fn f(x) { return x * x * x - 2 * x + 5; }
+
+// Compute derivative at x = 3
+let grad = ad.grad(f, 3.0);
+println(grad);                 // 25.0  (3*9 - 2 = 25)
+
+// Works with transcendental functions
+fn g(x) { return ad.sin(x) * ad.exp(x); }
+let dg = ad.grad(g, 0.0);
+println(dg);                   // 1.0  (sin(0)*exp(0) + cos(0)*exp(0))</code></pre>
+
+<h3>Dual-Aware Math Functions</h3>
+<pre><code>let x = ad.dual(1.0, 1.0);
+
+ad.sin(x);     // sin with chain rule
+ad.cos(x);     // cos with chain rule
+ad.exp(x);     // exp with chain rule
+ad.log(x);     // natural log with chain rule
+ad.sqrt(x);    // sqrt with chain rule
+ad.pow(x, 3);  // power with chain rule</code></pre>
+
+<div class="callout">
+<strong>Use case:</strong> Training neural networks, physics simulations, optimization &mdash; anywhere you need exact gradients without hand-deriving formulas.
+</div>
+
+<!-- ============================================================ -->
+<h2 id="pipelines">20. ML Pipelines</h2>
+
+<p>The <code>pipeline</code> module provides lazy, chainable data pipelines for preprocessing, batching, and transforming datasets. Transformations are deferred until a terminal operation executes.</p>
+
+<h3>Creating &amp; Transforming</h3>
+<pre><code>let data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+let result = pipeline.from(data)
+    .filter(|x| x % 2 == 0)       // [2, 4, 6, 8, 10]
+    .map(|x| x * x)               // [4, 16, 36, 64, 100]
+    .collect();
+
+println(result);                    // [4, 16, 36, 64, 100]</code></pre>
+
+<h3>Batching &amp; Shuffling</h3>
+<pre><code>let samples = pipeline.from(training_data)
+    .shuffle()                     // randomize order
+    .batch(32)                     // group into batches of 32
+    .take(10)                      // first 10 batches
+    .collect();</code></pre>
+
+<h3>Terminal Operations</h3>
+<pre><code>let data = pipeline.from([1, 2, 3, 4, 5]);
+
+let n = data.count();                           // 5
+let total = data.reduce(|acc, x| acc + x, 0);  // 15
+data.forEach(|x| println(x));                   // prints each</code></pre>
+
+<h3>Chaining with Tensors</h3>
+<pre><code>// Load data, normalize, batch, and train
+let batches = pipeline.from(raw_samples)
+    .map(|s| tensor.from(s))
+    .map(|t| t / 255.0)           // normalize
+    .shuffle()
+    .batch(64)
+    .collect();</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="model-io">21. Model I/O</h2>
+
+<p>The <code>model</code> module handles saving and loading trained models in Wakawaka's native WKTM (Wakawaka Tensor Model) format, plus importing weights from GGUF (llama.cpp) and ONNX formats.</p>
+
+<h3>Saving &amp; Loading</h3>
+<pre><code>// Save model weights
+let weights = {
+    "layer1": tensor.rand([784, 128]),
+    "bias1": tensor.zeros([128]),
+    "layer2": tensor.rand([128, 10]),
+    "bias2": tensor.zeros([10]),
+};
+
+model.save(weights, "my_model.wktm");
+
+// Load back
+let loaded = model.load("my_model.wktm");
+let l1 = loaded["layer1"];   // tensor restored</code></pre>
+
+<h3>Model Metadata</h3>
+<pre><code>model.setMeta(weights, "name", "MNIST Classifier");
+model.setMeta(weights, "accuracy", "97.3%");
+model.setMeta(weights, "epochs", "50");
+model.save(weights, "my_model.wktm");
+
+// Read metadata
+let m = model.load("my_model.wktm");
+println(model.meta(m, "name"));       // "MNIST Classifier"
+println(model.meta(m));               // all metadata as map</code></pre>
+
+<h3>Importing External Formats</h3>
+<pre><code>// Load GGUF weights (llama.cpp models)
+let llama = model.loadGGUF("llama-7b.gguf");
+for name in llama.keys() {
+    let t = llama[name];
+    println(f"{name}: shape={t.shape()}, size={t.size}");
+}
+
+// Load ONNX weights
+let onnx = model.loadONNX("resnet50.onnx");
+println(f"Loaded {onnx.keys().len()} tensors");</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="gpu">22. GPU Computing</h2>
+
+<p>The <code>gpu</code> module provides access to GPU hardware via OpenCL (Khronos open standard, royalty-free). Run compute kernels on any OpenCL-capable device &mdash; NVIDIA, AMD, Intel, or Apple GPUs.</p>
+
+<h3>Checking Availability</h3>
+<pre><code>if gpu.available() {
+    let devices = gpu.devices();
+    for d in devices {
+        println(f"GPU: {d}");
+    }
+} else {
+    println("No GPU / OpenCL not installed");
+}</code></pre>
+
+<h3>Running a Kernel</h3>
+<pre><code>let kernel = "
+__kernel void vector_add(
+    __global const float* A,
+    __global const float* B,
+    __global float* C,
+    const int N)
+{
+    int i = get_global_id(0);
+    if (i < N) C[i] = A[i] + B[i];
+}
+";
+
+let result = gpu.run(kernel);</code></pre>
+
+<div class="callout warning">
+<strong>Platform note:</strong> Requires OpenCL runtime installed on the system. Falls back gracefully if unavailable &mdash; <code>gpu.available()</code> returns <code>false</code>.
+</div>
+
+<!-- ============================================================ -->
+<h2 id="ffi">23. Foreign Modules (FFI)</h2>
+
+<p>Wakawaka can call into Python, Java, and Node.js at runtime via dynamic linking (<code>dlopen</code>). No build-time dependency &mdash; if the runtime is installed, it works. If not, the module gracefully reports unavailable. This approach carries <strong>zero licensing obligations</strong>.</p>
+
+<h3>Python</h3>
+<pre><code>if py.available() {
+    let np = py.import("numpy");
+    let result = py.call(np, "array", [1, 2, 3]);
+    println(result);
+
+    // Evaluate arbitrary Python
+    let pi = py.eval("__import__('math').pi");
+    println(f"Pi = {pi}");
+}</code></pre>
+
+<h3>Java / JVM</h3>
+<pre><code>if jvm.available() {
+    let System = jvm.import("java.lang.System");
+    let time = jvm.call(System, "currentTimeMillis");
+    println(f"Java time: {time}");
+}</code></pre>
+<div class="callout">
+<strong>Requires:</strong> <code>JAVA_HOME</code> set and <code>libjvm.so</code> accessible.
+</div>
+
+<h3>Node.js</h3>
+<pre><code>if node.available() {
+    let _ = node.require("lodash");
+    let result = node.eval("require('os').cpus().length");
+    println(f"CPU cores: {result}");
+}</code></pre>
+
+<h3>C / C++ Interop</h3>
+<p>Compiled Wakawaka transpiles to C99 and links against the Wakawaka runtime. You can extend it directly:</p>
+<pre><code>// 1. Write a C function using the WkVal ABI:
+//    WkVal my_func(WkVal *args, int argc, WkFunc *fn);
+//
+// 2. Register it in wk_runtime_init() or your own init function
+//
+// 3. Compile alongside your .wk program:
+//    gcc my_ext.c program.c runtime/waka_runtime.c -o program -lm</code></pre>
+<p>Since Wakawaka compiles to plain C, it interoperates with any C/C++ library. Link against SQLite, OpenSSL, BLAS, CUDA &mdash; anything with a C ABI.</p>
+
+<h3>Interpreter Mode (pyblock)</h3>
+<p>In interpreted mode, you can also use inline Python blocks for quick prototyping:</p>
+<pre><code>let numbers = [1, 2, 3, 4, 5];
+pyblock {
+    import statistics
+    mean_val = statistics.mean(numbers)
+    result = f"Mean = {mean_val}"
+}
+println(result);    // "Mean = 3"</code></pre>
+<div class="callout warning">
+<strong>Note:</strong> <code>pyblock</code> is only available in interpreted mode (<code>waka run</code>). Use <code>py.call()</code> for compiled mode.
+</div>
+
+<h3>Platform Support</h3>
+<table>
+<tr><th>Platform</th><th>Interpreter</th><th>Compiled</th><th>FFI (dlopen)</th></tr>
+<tr><td>Linux</td><td>Full</td><td>Full</td><td>Full</td></tr>
+<tr><td>macOS</td><td>Full</td><td>Full</td><td>Full</td></tr>
+<tr><td>Windows</td><td>Full</td><td>MinGW/MSYS2</td><td>Planned</td></tr>
+<tr><td>AIX / Solaris / HP-UX</td><td>Full</td><td>C99 + POSIX</td><td>dlopen compatible</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="webserver">24. Built-in Web Server</h2>
+
+<h3>Starting the Server</h3>
+<pre><code>waka serve ./public --port 3000</code></pre>
+
+<h3>Template Syntax</h3>
+<p>Files with <code>.wk</code> extension are executed as dynamic pages when served:</p>
+<pre><code>&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;body&gt;
+  &lt;h1&gt;Hello, &lt;?= request.GET.get("name") ?? "World" ?&gt;!&lt;/h1&gt;
+
+  &lt;?wk
+  let items = ["Apple", "Banana", "Cherry"];
+  ?&gt;
+
+  &lt;ul&gt;
+  &lt;?wk for item in items { ?&gt;
+    &lt;li&gt;&lt;?= item ?&gt;&lt;/li&gt;
+  &lt;?wk } ?&gt;
+  &lt;/ul&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+
+<h3>Template Tags</h3>
+<table>
+  <tr><th>Tag</th><th>Description</th></tr>
+  <tr><td><code>&lt;?= expr ?&gt;</code></td><td>Evaluate expression and output result</td></tr>
+  <tr><td><code>&lt;?wk code ?&gt;</code></td><td>Execute Wakawaka code block</td></tr>
+</table>
+
+<h3>Request Object</h3>
+<table>
+  <tr><th>Property</th><th>Description</th></tr>
+  <tr><td><code>request.method</code></td><td>HTTP method (GET, POST)</td></tr>
+  <tr><td><code>request.path</code></td><td>URL path</td></tr>
+  <tr><td><code>request.GET</code></td><td>Query parameters (map)</td></tr>
+  <tr><td><code>request.POST</code></td><td>Form/JSON body data (map)</td></tr>
+  <tr><td><code>request.headers</code></td><td>Request headers (map)</td></tr>
+  <tr><td><code>request.body</code></td><td>Raw request body (string)</td></tr>
+  <tr><td><code>request.cookies</code></td><td>Parsed cookies (map)</td></tr>
+</table>
+
+<h3>PHP-Compatible Globals</h3>
+<p>For familiarity, these aliases are available: <code>$_GET</code>, <code>$_POST</code>, <code>$_COOKIE</code>, <code>$_SERVER</code>.</p>
+
+<h3>Response Functions</h3>
+<table>
+  <tr><th>Function</th><th>Description</th></tr>
+  <tr><td><code>echo(str)</code></td><td>Write to response body</td></tr>
+  <tr><td><code>header(name, value)</code></td><td>Set response header</td></tr>
+  <tr><td><code>status(code)</code></td><td>Set HTTP status code</td></tr>
+  <tr><td><code>die([msg])</code></td><td>Stop execution, optionally write message</td></tr>
+</table>
+
+<h3>Routing</h3>
+<p>URLs map directly to filesystem paths. The server looks for <code>index.wk</code>, <code>index.html</code>, or <code>index.htm</code> in directories. Static files (.html, .css, .js, .png, .jpg, etc.) are served directly. Sensitive files (.py, .env, .key, .pem) are denied.</p>
+
+<!-- ============================================================ -->
+<h2 id="ref-builtins">25. Builtin Functions Reference</h2>
+
+<h3>I/O Functions</h3>
+<table>
+  <tr><th>Function</th><th>Description</th></tr>
+  <tr><td><code>println(...args)</code></td><td>Print arguments with trailing newline</td></tr>
+  <tr><td><code>print(...args)</code></td><td>Print arguments without newline</td></tr>
+  <tr><td><code>eprintln(...args)</code></td><td>Print to stderr with newline</td></tr>
+  <tr><td><code>readln([prompt])</code></td><td>Read a line from stdin (optional prompt)</td></tr>
+</table>
+
+<h3>Type Conversion</h3>
+<table>
+  <tr><th>Function</th><th>Description</th></tr>
+  <tr><td><code>str(value)</code></td><td>Convert to string</td></tr>
+  <tr><td><code>int(value)</code></td><td>Convert to integer</td></tr>
+  <tr><td><code>float(value)</code></td><td>Convert to float</td></tr>
+  <tr><td><code>bool(value)</code></td><td>Convert to boolean</td></tr>
+</table>
+
+<h3>Type Checking</h3>
+<table>
+  <tr><th>Function</th><th>Description</th></tr>
+  <tr><td><code>typeof(value)</code></td><td>Returns type name as string ("int", "str", "list", etc.)</td></tr>
+  <tr><td><code>len(value)</code></td><td>Length of string, list, map, tuple, or range</td></tr>
+  <tr><td><code>isNone(value)</code></td><td>True if value is <code>none</code></td></tr>
+  <tr><td><code>isSome(value)</code></td><td>True if value is <code>some(...)</code></td></tr>
+  <tr><td><code>isOk(value)</code></td><td>True if value is <code>ok(...)</code></td></tr>
+  <tr><td><code>isErr(value)</code></td><td>True if value is <code>err(...)</code></td></tr>
+</table>
+
+<h3>Aggregation</h3>
+<table>
+  <tr><th>Function</th><th>Description</th></tr>
+  <tr><td><code>sum(list)</code></td><td>Sum all numeric elements</td></tr>
+  <tr><td><code>min(...args)</code> or <code>min(list)</code></td><td>Minimum value</td></tr>
+  <tr><td><code>max(...args)</code> or <code>max(list)</code></td><td>Maximum value</td></tr>
+</table>
+
+<h3>Functional</h3>
+<table>
+  <tr><th>Function</th><th>Description</th></tr>
+  <tr><td><code>map(list, fn)</code></td><td>Apply function to each element, return new list</td></tr>
+  <tr><td><code>filter(list, fn)</code></td><td>Return elements where function returns truthy</td></tr>
+  <tr><td><code>reduce(fn, list [, init])</code></td><td>Reduce list using accumulator function</td></tr>
+  <tr><td><code>sorted(list [, key])</code></td><td>Return new sorted list</td></tr>
+  <tr><td><code>reversed(list)</code></td><td>Return new reversed list</td></tr>
+  <tr><td><code>any(list [, fn])</code></td><td>True if any element is truthy (or passes predicate)</td></tr>
+  <tr><td><code>all(list [, fn])</code></td><td>True if all elements are truthy (or pass predicate)</td></tr>
+  <tr><td><code>zip(list1, list2)</code></td><td>Pair elements into tuples</td></tr>
+  <tr><td><code>enumerate(list)</code></td><td>Return (index, element) tuples</td></tr>
+  <tr><td><code>range(end)</code> or <code>range(start, end)</code></td><td>Create integer range [start, end)</td></tr>
+</table>
+
+<h3>Utility</h3>
+<table>
+  <tr><th>Function</th><th>Description</th></tr>
+  <tr><td><code>copy(value)</code></td><td>Deep copy of any value (recursive for nested structures)</td></tr>
+  <tr><td><code>chr(n)</code></td><td>Integer to character string</td></tr>
+  <tr><td><code>ord(s)</code></td><td>First character to integer (byte value)</td></tr>
+  <tr><td><code>hash(value)</code></td><td>Hash code of value</td></tr>
+  <tr><td><code>repr(value)</code></td><td>Debug representation string</td></tr>
+  <tr><td><code>sleep(seconds)</code></td><td>Sleep for given duration (supports fractions)</td></tr>
+  <tr><td><code>exit([code])</code></td><td>Exit program with status code (default 0)</td></tr>
+  <tr><td><code>assert(cond [, msg])</code></td><td>Panic if condition is falsy</td></tr>
+  <tr><td><code>panic(msg)</code></td><td>Immediately halt with error message</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="ref-string">26. String Methods</h2>
+
+<table>
+  <tr><th>Method</th><th>Description</th><th>Returns</th></tr>
+  <tr><td><code>.len()</code></td><td>String length</td><td><code>int</code></td></tr>
+  <tr><td><code>.upper()</code></td><td>Uppercase copy</td><td><code>str</code></td></tr>
+  <tr><td><code>.lower()</code></td><td>Lowercase copy</td><td><code>str</code></td></tr>
+  <tr><td><code>.trim()</code></td><td>Remove leading/trailing whitespace</td><td><code>str</code></td></tr>
+  <tr><td><code>.isEmpty()</code></td><td>True if empty string</td><td><code>bool</code></td></tr>
+  <tr><td><code>.toInt()</code></td><td>Parse as integer</td><td><code>int</code></td></tr>
+  <tr><td><code>.toFloat()</code></td><td>Parse as float</td><td><code>float</code></td></tr>
+  <tr><td><code>.split([sep])</code></td><td>Split by separator (default: space)</td><td><code>[]str</code></td></tr>
+  <tr><td><code>.contains(sub)</code></td><td>True if contains substring</td><td><code>bool</code></td></tr>
+  <tr><td><code>.startsWith(prefix)</code></td><td>True if starts with prefix</td><td><code>bool</code></td></tr>
+  <tr><td><code>.endsWith(suffix)</code></td><td>True if ends with suffix</td><td><code>bool</code></td></tr>
+  <tr><td><code>.replace(old, new)</code></td><td>Replace all occurrences</td><td><code>str</code></td></tr>
+  <tr><td><code>.indexOf(sub)</code></td><td>Index of first occurrence (-1 if not found)</td><td><code>int</code></td></tr>
+  <tr><td><code>.repeat(n)</code></td><td>Repeat string n times</td><td><code>str</code></td></tr>
+  <tr><td><code>.lines()</code></td><td>Split by newlines</td><td><code>[]str</code></td></tr>
+  <tr><td><code>.chars()</code></td><td>List of single characters</td><td><code>[]str</code></td></tr>
+  <tr><td><code>.slice(start [, end])</code></td><td>Substring (negative indices supported)</td><td><code>str</code></td></tr>
+  <tr><td><code>.bytes()</code></td><td>List of byte values</td><td><code>[]int</code></td></tr>
+</table>
+
+<h4>Examples</h4>
+<pre><code>let s = "  Hello, World!  ";
+println(s.trim());            // "Hello, World!"
+println(s.trim().upper());    // "HELLO, WORLD!"
+println(s.trim().split(", ")); // ["Hello", "World!"]
+println("abc".repeat(3));     // "abcabcabc"
+println("hello".contains("ell")); // true
+println("hello"[1:4]);        // "ell" (slice syntax)</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="ref-list">27. List Methods</h2>
+
+<table>
+  <tr><th>Method</th><th>Description</th><th>Mutates?</th></tr>
+  <tr><td><code>.len()</code></td><td>Number of elements</td><td>No</td></tr>
+  <tr><td><code>.isEmpty()</code></td><td>True if empty</td><td>No</td></tr>
+  <tr><td><code>.push(item)</code></td><td>Append element</td><td>Yes</td></tr>
+  <tr><td><code>.append(item)</code></td><td>Alias for push</td><td>Yes</td></tr>
+  <tr><td><code>.pop()</code></td><td>Remove and return last element</td><td>Yes</td></tr>
+  <tr><td><code>.insert(idx, item)</code></td><td>Insert at index</td><td>Yes</td></tr>
+  <tr><td><code>.remove(item)</code></td><td>Remove first occurrence</td><td>Yes</td></tr>
+  <tr><td><code>.contains(item)</code></td><td>True if list contains item</td><td>No</td></tr>
+  <tr><td><code>.indexOf(item)</code></td><td>Index of first occurrence (-1 if not found)</td><td>No</td></tr>
+  <tr><td><code>.first()</code></td><td>First element or none</td><td>No</td></tr>
+  <tr><td><code>.last()</code></td><td>Last element or none</td><td>No</td></tr>
+  <tr><td><code>.clear()</code></td><td>Remove all elements</td><td>Yes</td></tr>
+  <tr><td><code>.reverse()</code></td><td>Reverse in place</td><td>Yes</td></tr>
+  <tr><td><code>.sort([key])</code></td><td>Sort in place (optional key function)</td><td>Yes</td></tr>
+  <tr><td><code>.sorted([key])</code></td><td>Return new sorted list</td><td>No</td></tr>
+  <tr><td><code>.join(sep)</code></td><td>Join elements as string</td><td>No</td></tr>
+  <tr><td><code>.map(fn)</code></td><td>Apply function, return new list</td><td>No</td></tr>
+  <tr><td><code>.filter(fn)</code></td><td>Keep matching elements, return new list</td><td>No</td></tr>
+  <tr><td><code>.reduce(fn [, init])</code></td><td>Reduce to single value</td><td>No</td></tr>
+  <tr><td><code>.forEach(fn)</code></td><td>Call function on each element</td><td>No</td></tr>
+  <tr><td><code>.any([fn])</code></td><td>True if any element is truthy / passes predicate</td><td>No</td></tr>
+  <tr><td><code>.all([fn])</code></td><td>True if all elements truthy / pass predicate</td><td>No</td></tr>
+  <tr><td><code>.sum()</code></td><td>Sum of numeric elements</td><td>No</td></tr>
+  <tr><td><code>.min()</code></td><td>Minimum element</td><td>No</td></tr>
+  <tr><td><code>.max()</code></td><td>Maximum element</td><td>No</td></tr>
+  <tr><td><code>.slice(start [, end])</code></td><td>Return sublist</td><td>No</td></tr>
+  <tr><td><code>.unique()</code></td><td>Remove duplicates (preserves order)</td><td>No</td></tr>
+  <tr><td><code>.flat()</code></td><td>Flatten one level of nesting</td><td>No</td></tr>
+  <tr><td><code>.zip(other)</code></td><td>Pair with another list</td><td>No</td></tr>
+  <tr><td><code>.enumerate()</code></td><td>Return (index, element) tuples</td><td>No</td></tr>
+  <tr><td><code>.count([val])</code></td><td>Count occurrences (or length if no arg)</td><td>No</td></tr>
+  <tr><td><code>.extend(other)</code></td><td>Append all elements from another list</td><td>Yes</td></tr>
+</table>
+
+<h4>Slice Syntax</h4>
+<pre><code>let nums = [10, 20, 30, 40, 50, 60, 70, 80];
+nums[1:4]      // [20, 30, 40]
+nums[:3]       // [10, 20, 30]
+nums[5:]       // [60, 70, 80]
+nums[::2]      // [10, 30, 50, 70]     (every 2nd element)
+nums[1:6:2]    // [20, 40, 60]         (with step)</code></pre>
+
+<h4>Examples</h4>
+<pre><code>let items = [3, 1, 4, 1, 5, 9, 2, 6];
+
+items.sorted()                    // [1, 1, 2, 3, 4, 5, 6, 9]
+items.filter(|x| x &gt; 3)          // [4, 5, 9, 6]
+items.map(|x| x * 2)             // [6, 2, 8, 2, 10, 18, 4, 12]
+items.reduce(|a, b| a + b, 0)    // 31
+items.unique()                    // [3, 1, 4, 5, 9, 2, 6]
+[1, 2, 3].join(", ")             // "1, 2, 3"</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="ref-map">28. Map Methods</h2>
+
+<table>
+  <tr><th>Method</th><th>Description</th><th>Mutates?</th></tr>
+  <tr><td><code>.len()</code></td><td>Number of key-value pairs</td><td>No</td></tr>
+  <tr><td><code>.isEmpty()</code></td><td>True if empty</td><td>No</td></tr>
+  <tr><td><code>.has(key)</code></td><td>True if key exists</td><td>No</td></tr>
+  <tr><td><code>.get(key [, default])</code></td><td>Get value by key (or default/none)</td><td>No</td></tr>
+  <tr><td><code>.set(key, value)</code></td><td>Set key-value pair</td><td>Yes</td></tr>
+  <tr><td><code>.delete(key)</code></td><td>Remove key</td><td>Yes</td></tr>
+  <tr><td><code>.keys()</code></td><td>List of all keys</td><td>No</td></tr>
+  <tr><td><code>.values()</code></td><td>List of all values</td><td>No</td></tr>
+  <tr><td><code>.entries()</code></td><td>List of (key, value) tuples</td><td>No</td></tr>
+  <tr><td><code>.clear()</code></td><td>Remove all entries</td><td>Yes</td></tr>
+  <tr><td><code>.merge(other)</code></td><td>Merge another map into this one</td><td>Yes</td></tr>
+</table>
+
+<h4>Examples</h4>
+<pre><code>let scores = {"Alice": 95, "Bob": 87, "Carol": 92};
+
+println(scores.keys());          // ["Alice", "Bob", "Carol"]
+println(scores.get("Alice"));    // 95
+println(scores.get("Dave", 0));  // 0 (default)
+println(scores.has("Bob"));      // true
+
+scores.set("Dave", 88);
+scores.delete("Bob");
+
+for entry in scores.entries() {
+    println(f"{entry[0]}: {entry[1]}");
+}</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="ref-math">29. Math Module</h2>
+
+<h3>Constants</h3>
+<table>
+  <tr><th>Name</th><th>Value</th></tr>
+  <tr><td><code>math.PI</code></td><td>3.14159265358979...</td></tr>
+  <tr><td><code>math.E</code></td><td>2.71828182845905...</td></tr>
+  <tr><td><code>math.TAU</code></td><td>6.28318530717959... (2 * PI)</td></tr>
+  <tr><td><code>math.INF</code></td><td>Positive infinity</td></tr>
+  <tr><td><code>math.NAN</code></td><td>Not a number</td></tr>
+</table>
+
+<h3>Functions</h3>
+<table>
+  <tr><th>Function</th><th>Description</th></tr>
+  <tr><td><code>math.sqrt(x)</code></td><td>Square root</td></tr>
+  <tr><td><code>math.abs(x)</code></td><td>Absolute value</td></tr>
+  <tr><td><code>math.floor(x)</code></td><td>Floor (largest integer &lt;= x)</td></tr>
+  <tr><td><code>math.ceil(x)</code></td><td>Ceiling (smallest integer &gt;= x)</td></tr>
+  <tr><td><code>math.pow(base, exp)</code></td><td>Power (base^exp)</td></tr>
+  <tr><td><code>math.sin(x)</code></td><td>Sine (radians)</td></tr>
+  <tr><td><code>math.cos(x)</code></td><td>Cosine (radians)</td></tr>
+  <tr><td><code>math.tan(x)</code></td><td>Tangent (radians)</td></tr>
+  <tr><td><code>math.asin(x)</code></td><td>Arcsine</td></tr>
+  <tr><td><code>math.acos(x)</code></td><td>Arccosine</td></tr>
+  <tr><td><code>math.atan(x)</code></td><td>Arctangent</td></tr>
+  <tr><td><code>math.atan2(y, x)</code></td><td>Two-argument arctangent</td></tr>
+  <tr><td><code>math.exp(x)</code></td><td>e^x</td></tr>
+  <tr><td><code>math.log(x)</code></td><td>Natural logarithm</td></tr>
+  <tr><td><code>math.log2(x)</code></td><td>Base-2 logarithm</td></tr>
+  <tr><td><code>math.log10(x)</code></td><td>Base-10 logarithm</td></tr>
+</table>
+
+<h4>Examples</h4>
+<pre><code>println(math.sqrt(16));        // 4.0
+println(math.PI);              // 3.14159265358979
+println(math.sin(math.PI/2));  // 1.0
+println(math.log(math.E));     // 1.0
+println(math.floor(3.7));      // 3.0
+println(math.ceil(3.2));       // 4.0
+println(math.abs(-42));        // 42</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="ref-tensor">30. Tensor Reference</h2>
+
+<h3>Creation Functions</h3>
+<table>
+<tr><th>Function</th><th>Description</th><th>Example</th></tr>
+<tr><td><code>tensor.zeros(shape)</code></td><td>Tensor of zeros</td><td><code>tensor.zeros([3, 3])</code></td></tr>
+<tr><td><code>tensor.ones(shape)</code></td><td>Tensor of ones</td><td><code>tensor.ones([2, 4])</code></td></tr>
+<tr><td><code>tensor.from(data)</code></td><td>Tensor from list</td><td><code>tensor.from([[1,2],[3,4]])</code></td></tr>
+<tr><td><code>tensor.eye(n)</code></td><td>Identity matrix</td><td><code>tensor.eye(4)</code></td></tr>
+<tr><td><code>tensor.rand(shape)</code></td><td>Random [0,1)</td><td><code>tensor.rand([3, 3])</code></td></tr>
+<tr><td><code>tensor.arange(start,stop,step)</code></td><td>Range tensor</td><td><code>tensor.arange(0, 10, 2)</code></td></tr>
+<tr><td><code>tensor.linspace(start,stop,n)</code></td><td>Evenly spaced</td><td><code>tensor.linspace(0, 1, 5)</code></td></tr>
+</table>
+
+<h3>Instance Methods</h3>
+<table>
+<tr><th>Method</th><th>Returns</th><th>Description</th></tr>
+<tr><td><code>.sum()</code></td><td>float</td><td>Sum of all elements</td></tr>
+<tr><td><code>.mean()</code></td><td>float</td><td>Mean of all elements</td></tr>
+<tr><td><code>.min()</code></td><td>float</td><td>Minimum element</td></tr>
+<tr><td><code>.max()</code></td><td>float</td><td>Maximum element</td></tr>
+<tr><td><code>.argmin()</code></td><td>int</td><td>Index of minimum</td></tr>
+<tr><td><code>.argmax()</code></td><td>int</td><td>Index of maximum</td></tr>
+<tr><td><code>.reshape(shape)</code></td><td>tensor</td><td>Reshape to new dimensions</td></tr>
+<tr><td><code>.transpose()</code></td><td>tensor</td><td>Transpose 2D matrix</td></tr>
+<tr><td><code>.flatten()</code></td><td>tensor</td><td>Flatten to 1D</td></tr>
+<tr><td><code>.matmul(other)</code></td><td>tensor</td><td>Matrix multiplication</td></tr>
+<tr><td><code>.dot(other)</code></td><td>float</td><td>Dot product</td></tr>
+<tr><td><code>.abs()</code></td><td>tensor</td><td>Element-wise absolute value</td></tr>
+<tr><td><code>.sqrt()</code></td><td>tensor</td><td>Element-wise square root</td></tr>
+<tr><td><code>.toList()</code></td><td>list</td><td>Convert to flat list</td></tr>
+<tr><td><code>.item(idx)</code></td><td>float</td><td>Extract scalar at index</td></tr>
+<tr><td><code>.slice(start,end)</code></td><td>tensor</td><td>Slice elements</td></tr>
+<tr><td><code>.shape()</code></td><td>list</td><td>Shape as list of dims</td></tr>
+<tr><td><code>.ndim</code></td><td>int</td><td>Number of dimensions</td></tr>
+<tr><td><code>.size</code></td><td>int</td><td>Total number of elements</td></tr>
+<tr><td><code>.data</code></td><td>list</td><td>Raw data as list</td></tr>
+</table>
+
+<h3>Operators</h3>
+<p>Tensors support <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code> for element-wise arithmetic with broadcasting.</p>
+
+<!-- ============================================================ -->
+<h2 id="ref-ad">31. AD Reference</h2>
+
+<table>
+<tr><th>Function</th><th>Description</th></tr>
+<tr><td><code>ad.dual(value, deriv)</code></td><td>Create dual number (value + &epsilon;&middot;deriv)</td></tr>
+<tr><td><code>ad.value(x)</code></td><td>Extract value component</td></tr>
+<tr><td><code>ad.deriv(x)</code></td><td>Extract derivative component</td></tr>
+<tr><td><code>ad.grad(fn, x)</code></td><td>Compute gradient of <code>fn</code> at <code>x</code></td></tr>
+<tr><td><code>ad.sin(x)</code></td><td>Dual-aware sine</td></tr>
+<tr><td><code>ad.cos(x)</code></td><td>Dual-aware cosine</td></tr>
+<tr><td><code>ad.exp(x)</code></td><td>Dual-aware exponential</td></tr>
+<tr><td><code>ad.log(x)</code></td><td>Dual-aware natural log</td></tr>
+<tr><td><code>ad.sqrt(x)</code></td><td>Dual-aware square root</td></tr>
+<tr><td><code>ad.pow(x, n)</code></td><td>Dual-aware power</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="ref-pipeline">32. Pipeline Reference</h2>
+
+<h3>Entry Point</h3>
+<table>
+<tr><th>Function</th><th>Description</th></tr>
+<tr><td><code>pipeline.from(data)</code></td><td>Create a lazy pipeline from a list or tensor</td></tr>
+</table>
+
+<h3>Transform Operations (chainable)</h3>
+<table>
+<tr><th>Method</th><th>Description</th></tr>
+<tr><td><code>.map(fn)</code></td><td>Apply function to each element</td></tr>
+<tr><td><code>.filter(fn)</code></td><td>Keep elements where fn returns true</td></tr>
+<tr><td><code>.batch(n)</code></td><td>Group into batches of size n</td></tr>
+<tr><td><code>.flatten()</code></td><td>Flatten nested lists</td></tr>
+<tr><td><code>.take(n)</code></td><td>Take first n elements</td></tr>
+<tr><td><code>.skip(n)</code></td><td>Skip first n elements</td></tr>
+<tr><td><code>.shuffle()</code></td><td>Randomly shuffle (Fisher-Yates)</td></tr>
+<tr><td><code>.zip(other)</code></td><td>Zip with another list/pipeline</td></tr>
+</table>
+
+<h3>Terminal Operations</h3>
+<table>
+<tr><th>Method</th><th>Description</th></tr>
+<tr><td><code>.collect()</code></td><td>Execute pipeline, return list</td></tr>
+<tr><td><code>.count()</code></td><td>Execute pipeline, return count</td></tr>
+<tr><td><code>.reduce(fn, init)</code></td><td>Fold elements with function</td></tr>
+<tr><td><code>.forEach(fn)</code></td><td>Execute fn on each element</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="ref-model">33. Model Reference</h2>
+
+<table>
+<tr><th>Function</th><th>Description</th></tr>
+<tr><td><code>model.save(dict, path)</code></td><td>Save tensor map to WKTM binary file</td></tr>
+<tr><td><code>model.load(path)</code></td><td>Load WKTM file, returns tensor map</td></tr>
+<tr><td><code>model.meta(dict, key?)</code></td><td>Get metadata (all or by key)</td></tr>
+<tr><td><code>model.setMeta(dict, key, val)</code></td><td>Set metadata key-value pair</td></tr>
+<tr><td><code>model.loadGGUF(path)</code></td><td>Import GGUF weights (llama.cpp)</td></tr>
+<tr><td><code>model.loadONNX(path)</code></td><td>Import ONNX weights</td></tr>
+</table>
+
+<p><strong>WKTM Format:</strong> <code>magic("WKTM") + version(u8) + n_tensors(u32) + [name_len(u32) + name + ndim(u8) + shape(i64[]) + data(f64[])]* + meta_len(u32) + json_metadata</code></p>
+
+<!-- ============================================================ -->
+<h2 id="ref-ffi">34. FFI Reference</h2>
+
+<h3>Python (<code>py</code>)</h3>
+<table>
+<tr><th>Function</th><th>Description</th></tr>
+<tr><td><code>py.available()</code></td><td>Check if libpython3 is loadable</td></tr>
+<tr><td><code>py.import(name)</code></td><td>Import Python module, returns handle</td></tr>
+<tr><td><code>py.call(mod, method, ...args)</code></td><td>Call method on module</td></tr>
+<tr><td><code>py.eval(expr)</code></td><td>Evaluate Python expression</td></tr>
+</table>
+
+<h3>Java / JVM (<code>jvm</code>)</h3>
+<table>
+<tr><th>Function</th><th>Description</th></tr>
+<tr><td><code>jvm.available()</code></td><td>Check if libjvm is loadable (needs JAVA_HOME)</td></tr>
+<tr><td><code>jvm.import(class)</code></td><td>Import Java class, returns handle</td></tr>
+<tr><td><code>jvm.call(cls, method, ...args)</code></td><td>Call Java method</td></tr>
+</table>
+
+<h3>Node.js (<code>node</code>)</h3>
+<table>
+<tr><th>Function</th><th>Description</th></tr>
+<tr><td><code>node.available()</code></td><td>Check if <code>node</code> is in PATH</td></tr>
+<tr><td><code>node.require(module)</code></td><td>Require npm module, returns handle</td></tr>
+<tr><td><code>node.eval(expr)</code></td><td>Evaluate JavaScript expression</td></tr>
+<tr><td><code>node.call(mod, method, ...args)</code></td><td>Call method on module</td></tr>
+</table>
+
+<h3>Filesystem (<code>fs</code>)</h3>
+<table>
+<tr><th>Function</th><th>Description</th></tr>
+<tr><td><code>fs.read(path)</code></td><td>Read file as string</td></tr>
+<tr><td><code>fs.write(path, content)</code></td><td>Write string to file</td></tr>
+<tr><td><code>fs.exists(path)</code></td><td>Check if file exists</td></tr>
+<tr><td><code>fs.args()</code></td><td>Get CLI arguments as list</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="examples">35. Complete Examples</h2>
+
+<h3>Hello World &mdash; Basic Language Tour</h3>
+<pre><code>// hello.wk &mdash; Demonstrates basic Wakawaka features
+
+// Variables and types
+let name = "Wakawaka";
+let version = "1.0.0";
+let x: int = 42;
+let y: float = 3.14;
+let flag = true;
+
+println(f"Hello, World!");
+println(f"Welcome to {name} v{version}");
+println(f"x={x}, y={y}, flag={flag}");
+
+// Collections
+let nums = [1, 2, 3, 4, 5];
+nums.push(6);
+println(f"nums = {nums}");
+
+let sum = nums.reduce(|a, b| a + b, 0);
+println(f"sum  = {sum}");
+
+// Functional with closures
+let doubled = nums.map(|n| n * 2);
+println(f"doubled = {doubled}");
+
+// Maps
+let scores = {"Bob": 87, "Alice": 95, "Carol": 92};
+for key in scores.keys() {
+    println(f"  {key}: {scores.get(key)}");
+}
+
+// Control flow
+if x &gt; 50 {
+    println("x is large");
+} else {
+    println("x is small");
+}
+
+// While loop
+var count = 0;
+while count &lt; 3 {
+    println(f"  count = {count}");
+    count += 1;
+}
+
+// Range-based for
+for i in 1..=5 {
+    print(f"{i} ");
+}
+println("");
+
+// Pattern matching
+fn safe_divide(a: float, b: float) -&gt; Result&lt;float, str&gt; {
+    if b == 0.0 { return err("division by zero"); }
+    return ok(a / b);
+}
+
+match safe_divide(84.0, 2.0) {
+    ok(v) =&gt; println(f"Got value: {v}"),
+    err(e) =&gt; println(f"Error: {e}"),
+}
+
+// Pipe operator
+let result = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    |&gt; filter(|n| n % 2 == 0)
+    |&gt; map(|n| n ** 2)
+    |&gt; sum;
+println(f"Sum of squares of even nums 1-10: {result}");
+
+println(f"\n{name} is running!");</code></pre>
+
+<h3>OOP Demo &mdash; Classes, Inheritance, Generics</h3>
+<pre><code>// oop_demo.wk &mdash; Object-oriented programming features
+
+// Interface
+interface Drawable {
+    fn draw(self);
+    fn area(self) -&gt; float;
+}
+
+// Abstract base class
+abstract class Shape {
+    var color: str;
+    var filled: bool;
+
+    abstract fn area(self) -&gt; float;
+    abstract fn perimeter(self) -&gt; float;
+
+    fn describe(self) -&gt; str {
+        let fill = self.filled ? "filled" : "outline";
+        return f"[{self.color} {fill}] area={self.area()}, perimeter={self.perimeter()}";
+    }
+}
+
+// Concrete class with inheritance
+class Circle extends Shape {
+    var radius: float;
+
+    fn new(r: float, color: str) -&gt; Circle {
+        return Circle { radius: r, color: color, filled: true };
+    }
+
+    override fn area(self) -&gt; float {
+        return math.PI * self.radius ** 2;
+    }
+
+    override fn perimeter(self) -&gt; float {
+        return 2.0 * math.PI * self.radius;
+    }
+
+    fn draw(self) {
+        println(f"Drawing circle r={self.radius} [{self.color}]");
+    }
+
+    // Operator overloading
+    fn operator+(self, other: Circle) -&gt; Circle {
+        return Circle.new(self.radius + other.radius, self.color);
+    }
+
+    fn operator==(self, other: Circle) -&gt; bool {
+        return self.radius == other.radius;
+    }
+}
+
+// Generic class
+class Stack&lt;T&gt; {
+    var items: []T;
+
+    fn new() -&gt; Stack&lt;T&gt; {
+        return Stack { items: [] };
+    }
+
+    fn push(var self, item: T) { self.items.push(item); }
+
+    fn pop(var self) -&gt; ?T {
+        if self.items.isEmpty() { return none; }
+        return some(self.items.pop());
+    }
+
+    fn peek(self) -&gt; ?T {
+        if self.items.isEmpty() { return none; }
+        return some(self.items.last());
+    }
+
+    fn size(self) -&gt; int { return self.items.len(); }
+}
+
+// Usage
+let c1 = Circle.new(3.0, "red");
+let c2 = Circle.new(4.0, "blue");
+c1.draw();
+println(c1.describe());
+println(f"c1 == c2: {c1 == c2}");
+println(f"c1 + c2 radius: {(c1 + c2).radius}");
+
+let stack = Stack&lt;int&gt;.new();
+stack.push(1);
+stack.push(2);
+stack.push(3);
+println(f"Stack size: {stack.size()}");
+println(f"Peek: {stack.peek()}");
+println(f"Popped: {stack.pop()}");</code></pre>
+
+<h3>Concurrency Demo</h3>
+<pre><code>// concurrency.wk &mdash; Channels, defer, error handling, closures
+
+// Channels
+fn channel_demo() {
+    let ch = chan&lt;str&gt;(20);
+
+    fn worker(id: int, ch: chan) {
+        for i in 0..3 {
+            let msg = f"worker-{id} item-{i}";
+            println(f"  [{id}] sending: {msg}");
+            ch &lt;- msg;
+        }
+    }
+
+    go worker(1, ch);
+    go worker(2, ch);
+    go worker(3, ch);
+    sleep(0.5);
+    println("Channel demo complete");
+}
+
+// Defer
+fn defer_demo() {
+    fn with_resource(name: str) {
+        println(f"  opening {name}");
+        defer println(f"  cleanup: {name} closed");
+        defer println(f"  cleanup: {name} flushed");
+        println(f"  working with {name}");
+    }
+
+    with_resource("resource-A");
+    with_resource("resource-B");
+}
+
+// Error handling with Result
+fn error_demo() {
+    fn divide(a: float, b: float) -&gt; Result&lt;float, str&gt; {
+        if b == 0.0 { return err("division by zero"); }
+        return ok(a / b);
+    }
+
+    fn parse_and_divide(s: str, divisor: float) -&gt; Result&lt;float, str&gt; {
+        let n = float(s);
+        if isNone(n) { return err(f"cannot parse '{s}' as float"); }
+        return divide(n, divisor);
+    }
+
+    let tests = [(10.0, 4.0), (5.0, 0.0), (9.0, 3.0)];
+    for t in tests {
+        match divide(t[0], t[1]) {
+            ok(v) =&gt; println(f"  OK: {t[0]} / {t[1]} = {v}"),
+            err(e) =&gt; println(f"  Err: {e}"),
+        }
+    }
+}
+
+// Higher-order functions
+fn closure_demo() {
+    fn make_adder(n: int) -&gt; fn {
+        return |x| x + n;
+    }
+
+    fn compose(f: fn, g: fn) -&gt; fn {
+        return |x| f(g(x));
+    }
+
+    let add5 = make_adder(5);
+    let mul3 = |x| x * 3;
+    println(f"  add5(10) = {add5(10)}");
+    println(f"  mul3(10) = {mul3(10)}");
+    println(f"  compose(mul3, add5)(10) = {compose(mul3, add5)(10)}");
+
+    // Pipe operator
+    let result = 10 |&gt; add5 |&gt; mul3;
+    println(f"  10 |&gt; add5 |&gt; mul3 = {result}");
+}
+
+println("=== Concurrency Demo ===\n");
+println("--- Channels ---");
+channel_demo();
+println("\n--- Defer ---");
+defer_demo();
+println("\n--- Error Handling ---");
+error_demo();
+println("\n--- Closures ---");
+closure_demo();
+println("\nDemo complete!");</code></pre>
+
+<h3>Shell Integration Demo</h3>
+<pre><code>// shell_demo.wk &mdash; Shell command integration
+
+println("=== Shell Integration ===\n");
+
+// Execute shell commands
+let cwd = $`pwd`.trim();
+println(f"Current directory: {cwd}");
+
+// Process output as lines
+let files = $`ls -la`.lines();
+println(f"\nFiles ({files.len()} lines):");
+for line in files {
+    println(f"  {line}");
+}
+
+// Safe variable interpolation
+let filename = "hello.dt";
+let first_line = $`head -1 examples/{filename}`.trim();
+println(f"\nFirst line of {filename}:");
+println(first_line);
+
+// Find files
+let wk_files = $`find examples -name "*.dt"`.trim().lines();
+println(f"\n--- Found {wk_files.len()} .dt files ---");
+for f in wk_files {
+    println(f"  {f}");
+}
+
+// Environment variables
+let home = $`echo $HOME`.trim();
+println(f"\nHOME = {home}");
+
+println("\nShell integration complete!");</code></pre>
+
+<footer>
+  <p><strong>Wakawaka Language User Guide</strong> &mdash; Version 1.0.0 &mdash; March 2026</p>
+  <p>&copy; 2025-2026 OpenCan.ai &mdash; MIT License</p>
+  <p style="margin-top: 12px;">
+    <a href="https://opencan.ai/pages/contact.html">Contact</a> &middot;
+    <a href="https://opencan.ai/pages/privacy.html">Privacy</a> &middot;
+    <a href="https://opencan.ai/pages/terms.html">Terms</a> &middot;
+    <a href="https://opencan.ai">Back to OpenCan.ai</a>
+  </p>
+</footer>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<script>
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('overlay').classList.toggle('active');
+}
+const navLinks = document.querySelectorAll('.sidebar nav a');
+const sections = document.querySelectorAll('h2[id]');
+function updateActiveNav() {
+  let current = '';
+  sections.forEach(s => {
+    if (window.scrollY >= s.offsetTop - 100) current = s.id;
+  });
+  navLinks.forEach(a => {
+    a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+  });
+}
+window.addEventListener('scroll', updateActiveNav);
+window.addEventListener('load', updateActiveNav);
+navLinks.forEach(a => a.addEventListener('click', () => {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('overlay').classList.remove('active');
+}));
+</script>
+</body>
+</html>

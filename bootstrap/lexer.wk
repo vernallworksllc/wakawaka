@@ -1,0 +1,261 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// Wakawaka Bootstrap Lexer
+// Tokenizes .wk source into a list of token maps.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Token type constants
+const TK_INT     = "INT";
+const TK_FLOAT   = "FLOAT";
+const TK_STR     = "STR";
+const TK_FSTR    = "FSTR";
+const TK_IDENT   = "IDENT";
+const TK_KEYWORD = "KEYWORD";
+const TK_OP      = "OP";
+const TK_PUNCT   = "PUNCT";
+const TK_SHELL   = "SHELL";
+const TK_EOF     = "EOF";
+
+// Keywords
+const KEYWORDS = [
+    "let", "var", "const", "fn", "class", "struct", "enum",
+    "if", "else", "while", "for", "do", "match",
+    "return", "break", "continue",
+    "import", "as", "in",
+    "true", "false", "none",
+    "some", "ok", "err",
+    "and", "or", "not",
+    "macro", "module", "comptime",
+    "go", "chan", "defer",
+    "pub", "priv", "static",
+    "extends", "impl", "interface",
+    "async", "await", "spawn",
+    "is", "new", "self", "super",
+    "actor", "receive", "unsafe",
+];
+
+fn is_alpha(c) {
+    return (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || c == "_";
+}
+
+fn is_digit(c) {
+    return c >= "0" && c <= "9";
+}
+
+fn is_alnum(c) {
+    return is_alpha(c) || is_digit(c);
+}
+
+fn is_space(c) {
+    return c == " " || c == "\t" || c == "\r" || c == "\n";
+}
+
+fn tok(type, value, line) {
+    return {"type": type, "value": value, "line": line};
+}
+
+fn tokenize(source) {
+    let tokens = [];
+    let i = 0;
+    let line = 1;
+    let slen = len(source);
+
+    while i < slen {
+        let c = source[i];
+
+        // Skip whitespace
+        if is_space(c) {
+            if c == "\n" {
+                line = line + 1;
+            }
+            i = i + 1;
+            continue;
+        }
+
+        // Single-line comment
+        if c == "/" && i + 1 < slen && source[i + 1] == "/" {
+            while i < slen && source[i] != "\n" {
+                i = i + 1;
+            }
+            continue;
+        }
+
+        // Multi-line comment
+        if c == "/" && i + 1 < slen && source[i + 1] == "*" {
+            i = i + 2;
+            while i + 1 < slen {
+                if source[i] == "\n" {
+                    line = line + 1;
+                }
+                if source[i] == "*" && source[i + 1] == "/" {
+                    i = i + 2;
+                    break;
+                }
+                i = i + 1;
+            }
+            continue;
+        }
+
+        // Numbers
+        if is_digit(c) {
+            let start = i;
+            let is_float = false;
+            while i < slen && is_digit(source[i]) {
+                i = i + 1;
+            }
+            if i < slen && source[i] == "." && i + 1 < slen && is_digit(source[i + 1]) {
+                is_float = true;
+                i = i + 1;
+                while i < slen && is_digit(source[i]) {
+                    i = i + 1;
+                }
+            }
+            let num_str = source.slice(start, i);
+            if is_float {
+                tokens.push(tok(TK_FLOAT, num_str, line));
+            } else {
+                tokens.push(tok(TK_INT, num_str, line));
+            }
+            continue;
+        }
+
+        // Identifiers and keywords
+        if is_alpha(c) {
+            let start = i;
+            while i < slen && is_alnum(source[i]) {
+                i = i + 1;
+            }
+            let word = source.slice(start, i);
+            if word == "true" || word == "false" {
+                tokens.push(tok(TK_KEYWORD, word, line));
+            } else if KEYWORDS.contains(word) {
+                tokens.push(tok(TK_KEYWORD, word, line));
+            } else {
+                tokens.push(tok(TK_IDENT, word, line));
+            }
+            continue;
+        }
+
+        // f-strings: f"..."
+        if c == "f" && i + 1 < slen && source[i + 1] == "\"" {
+            i = i + 2;
+            let parts = [];
+            let buf = "";
+            while i < slen && source[i] != "\"" {
+                if source[i] == "\\" && i + 1 < slen {
+                    let nc = source[i + 1];
+                    if nc == "n" { buf = buf + "\n"; }
+                    else if nc == "t" { buf = buf + "\t"; }
+                    else if nc == "\\" { buf = buf + "\\"; }
+                    else if nc == "\"" { buf = buf + "\""; }
+                    else if nc == "{" { buf = buf + "{"; }
+                    else { buf = buf + nc; }
+                    i = i + 2;
+                    continue;
+                }
+                if source[i] == "{" {
+                    if len(buf) > 0 {
+                        parts.push({"kind": "lit", "val": buf});
+                        buf = "";
+                    }
+                    i = i + 1;
+                    let expr_start = i;
+                    let depth = 1;
+                    while i < slen && depth > 0 {
+                        if source[i] == "{" { depth = depth + 1; }
+                        if source[i] == "}" { depth = depth - 1; }
+                        if depth > 0 { i = i + 1; }
+                    }
+                    let expr_text = source.slice(expr_start, i);
+                    parts.push({"kind": "expr", "val": expr_text});
+                    i = i + 1;  // skip closing }
+                    continue;
+                }
+                if source[i] == "\n" { line = line + 1; }
+                buf = buf + source[i];
+                i = i + 1;
+            }
+            if len(buf) > 0 {
+                parts.push({"kind": "lit", "val": buf});
+            }
+            i = i + 1;  // skip closing "
+            tokens.push(tok(TK_FSTR, parts, line));
+            continue;
+        }
+
+        // Strings
+        if c == "\"" {
+            i = i + 1;
+            let buf = "";
+            while i < slen && source[i] != "\"" {
+                if source[i] == "\\" && i + 1 < slen {
+                    let nc = source[i + 1];
+                    if nc == "n" { buf = buf + "\n"; }
+                    else if nc == "t" { buf = buf + "\t"; }
+                    else if nc == "\\" { buf = buf + "\\"; }
+                    else if nc == "\"" { buf = buf + "\""; }
+                    else { buf = buf + nc; }
+                    i = i + 2;
+                    continue;
+                }
+                if source[i] == "\n" { line = line + 1; }
+                buf = buf + source[i];
+                i = i + 1;
+            }
+            i = i + 1;  // skip closing "
+            tokens.push(tok(TK_STR, buf, line));
+            continue;
+        }
+
+        // Shell expression: $`...`
+        if c == "$" && i + 1 < slen && source[i + 1] == "`" {
+            i = i + 2;
+            let buf = "";
+            while i < slen && source[i] != "`" {
+                buf = buf + source[i];
+                i = i + 1;
+            }
+            i = i + 1;  // skip closing `
+            tokens.push(tok(TK_SHELL, buf, line));
+            continue;
+        }
+
+        // Two-char operators
+        if i + 1 < slen {
+            let two = source.slice(i, i + 2);
+            if two == "==" || two == "!=" || two == "<=" || two == ">=" ||
+               two == "&&" || two == "||" || two == "+=" || two == "-=" ||
+               two == "*=" || two == "/=" || two == "%=" || two == "**" ||
+               two == "->" || two == "=>" || two == "|>" || two == "<-" ||
+               two == ".." || two == "::" || two == "?." || two == "??" ||
+               two == "<<" || two == ">>" {
+                tokens.push(tok(TK_OP, two, line));
+                i = i + 2;
+                continue;
+            }
+        }
+
+        // Single-char operators and punctuation
+        if c == "+" || c == "-" || c == "*" || c == "/" || c == "%" ||
+           c == "=" || c == "<" || c == ">" || c == "!" || c == "~" ||
+           c == "&" || c == "|" || c == "^" {
+            tokens.push(tok(TK_OP, c, line));
+            i = i + 1;
+            continue;
+        }
+
+        if c == "(" || c == ")" || c == "{" || c == "}" ||
+           c == "[" || c == "]" || c == "," || c == "." ||
+           c == ":" || c == ";" || c == "@" || c == "?" ||
+           c == "#" {
+            tokens.push(tok(TK_PUNCT, c, line));
+            i = i + 1;
+            continue;
+        }
+
+        // Unknown character — skip
+        i = i + 1;
+    }
+
+    tokens.push(tok(TK_EOF, "", line));
+    return tokens;
+}

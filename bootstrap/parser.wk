@@ -1,0 +1,708 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// Wakawaka Bootstrap Parser
+// Recursive descent parser producing AST as maps.
+// ═══════════════════════════════════════════════════════════════════════════
+
+var _tokens = [];
+var _pos = 0;
+
+fn peek() {
+    if _pos < len(_tokens) {
+        return _tokens[_pos];
+    }
+    return {"type": "EOF", "value": "", "line": 0};
+}
+
+fn advance() {
+    let t = peek();
+    _pos = _pos + 1;
+    return t;
+}
+
+fn at(type, val) {
+    let t = peek();
+    if val == none {
+        return t["type"] == type;
+    }
+    return t["type"] == type && t["value"] == val;
+}
+
+fn expect(type, val) {
+    let t = advance();
+    if val != none {
+        if t["type"] != type || t["value"] != val {
+            panic(f"Parse error line {t[\"line\"]}: expected {type} '{val}', got {t[\"type\"]} '{t[\"value\"]}'");
+        }
+    } else {
+        if t["type"] != type {
+            panic(f"Parse error line {t[\"line\"]}: expected {type}, got {t[\"type\"]} '{t[\"value\"]}'");
+        }
+    }
+    return t;
+}
+
+fn parse(tokens) {
+    _tokens = tokens;
+    _pos = 0;
+    let stmts = [];
+    while !at("EOF", none) {
+        let s = parse_stmt();
+        if s != none {
+            stmts.push(s);
+        }
+    }
+    return {"type": "program", "stmts": stmts};
+}
+
+// ── Statement parsing ──────────────────────────────────────────────────────
+
+fn parse_stmt() {
+    let t = peek();
+    let tp = t["type"];
+    let v = t["value"];
+
+    if tp == "KEYWORD" {
+        if v == "let" || v == "var" {
+            return parse_let();
+        }
+        if v == "const" {
+            return parse_const();
+        }
+        if v == "fn" {
+            return parse_fn();
+        }
+        if v == "if" {
+            return parse_if();
+        }
+        if v == "while" {
+            return parse_while();
+        }
+        if v == "for" {
+            return parse_for();
+        }
+        if v == "return" {
+            return parse_return();
+        }
+        if v == "break" {
+            advance();
+            skip_semi();
+            return {"type": "break"};
+        }
+        if v == "continue" {
+            advance();
+            skip_semi();
+            return {"type": "continue"};
+        }
+        if v == "match" {
+            return parse_match();
+        }
+        if v == "class" {
+            return parse_class();
+        }
+        if v == "struct" {
+            return parse_struct();
+        }
+        if v == "enum" {
+            return parse_enum();
+        }
+        if v == "import" {
+            return parse_import();
+        }
+        if v == "module" {
+            return parse_module();
+        }
+        if v == "macro" {
+            return parse_macro();
+        }
+    }
+
+    // Expression statement
+    let expr = parse_expr();
+
+    // Assignment
+    if at("OP", "=") {
+        advance();
+        let val = parse_expr();
+        skip_semi();
+        return {"type": "assign", "target": expr, "value": val};
+    }
+
+    // Compound assignment
+    let t2 = peek();
+    if t2["type"] == "OP" {
+        let op = t2["value"];
+        if op == "+=" || op == "-=" || op == "*=" || op == "/=" || op == "%=" {
+            advance();
+            let val = parse_expr();
+            let base_op = op.slice(0, 1);
+            skip_semi();
+            return {"type": "assign", "target": expr,
+                    "value": {"type": "binop", "op": base_op, "left": expr, "right": val}};
+        }
+    }
+
+    skip_semi();
+    return {"type": "expr_stmt", "expr": expr};
+}
+
+fn skip_semi() {
+    if at("PUNCT", ";") {
+        advance();
+    }
+}
+
+fn parse_block() {
+    expect("PUNCT", "{");
+    let stmts = [];
+    while !at("PUNCT", "}") && !at("EOF", none) {
+        let s = parse_stmt();
+        if s != none {
+            stmts.push(s);
+        }
+    }
+    expect("PUNCT", "}");
+    return {"type": "block", "stmts": stmts};
+}
+
+fn parse_let() {
+    advance(); // skip let/var
+    let name_tok = expect("IDENT", none);
+    let name = name_tok["value"];
+    let type_ann = none;
+    if at("PUNCT", ":") {
+        advance();
+        type_ann = expect("IDENT", none)["value"];
+    }
+    let value = none;
+    if at("OP", "=") {
+        advance();
+        value = parse_expr();
+    }
+    skip_semi();
+    return {"type": "let", "name": name, "type_ann": type_ann, "value": value};
+}
+
+fn parse_const() {
+    advance(); // skip const
+    let name_tok = expect("IDENT", none);
+    let name = name_tok["value"];
+    let type_ann = none;
+    if at("PUNCT", ":") {
+        advance();
+        type_ann = expect("IDENT", none)["value"];
+    }
+    expect("OP", "=");
+    let value = parse_expr();
+    skip_semi();
+    return {"type": "const", "name": name, "type_ann": type_ann, "value": value};
+}
+
+fn parse_fn() {
+    advance(); // skip fn
+    let name_tok = expect("IDENT", none);
+    let name = name_tok["value"];
+    let params = parse_params();
+    let return_type = none;
+    if at("OP", "->") {
+        advance();
+        return_type = expect("IDENT", none)["value"];
+    }
+    let body = parse_block();
+    return {"type": "fn", "name": name, "params": params,
+            "return_type": return_type, "body": body};
+}
+
+fn parse_params() {
+    expect("PUNCT", "(");
+    let params = [];
+    while !at("PUNCT", ")") {
+        let p = expect("IDENT", none)["value"];
+        let type_ann = none;
+        if at("PUNCT", ":") {
+            advance();
+            type_ann = expect("IDENT", none)["value"];
+        }
+        let default_val = none;
+        if at("OP", "=") {
+            advance();
+            default_val = parse_expr();
+        }
+        params.push({"name": p, "type_ann": type_ann, "default": default_val});
+        if at("PUNCT", ",") {
+            advance();
+        }
+    }
+    expect("PUNCT", ")");
+    return params;
+}
+
+fn parse_if() {
+    advance(); // skip if
+    let cond = parse_expr();
+    let then_block = parse_block();
+    let elseifs = [];
+    let else_block = none;
+    while at("KEYWORD", "else") {
+        advance();
+        if at("KEYWORD", "if") {
+            advance();
+            let eif_cond = parse_expr();
+            let eif_body = parse_block();
+            elseifs.push({"cond": eif_cond, "body": eif_body});
+        } else {
+            else_block = parse_block();
+            break;
+        }
+    }
+    return {"type": "if", "cond": cond, "then": then_block,
+            "elseifs": elseifs, "else": else_block};
+}
+
+fn parse_while() {
+    advance(); // skip while
+    let cond = parse_expr();
+    let body = parse_block();
+    return {"type": "while", "cond": cond, "body": body};
+}
+
+fn parse_for() {
+    advance(); // skip for
+    let var_name = expect("IDENT", none)["value"];
+    expect("KEYWORD", "in");
+    let iter = parse_expr();
+    let body = parse_block();
+    return {"type": "for_in", "var": var_name, "iter": iter, "body": body};
+}
+
+fn parse_return() {
+    advance(); // skip return
+    let value = none;
+    if !at("PUNCT", ";") && !at("PUNCT", "}") && !at("EOF", none) {
+        value = parse_expr();
+    }
+    skip_semi();
+    return {"type": "return", "value": value};
+}
+
+fn parse_match() {
+    advance(); // skip match
+    let expr = parse_expr();
+    expect("PUNCT", "{");
+    let arms = [];
+    while !at("PUNCT", "}") {
+        let pattern = parse_expr();
+        expect("OP", "=>");
+        let body = none;
+        if at("PUNCT", "{") {
+            body = parse_block();
+        } else {
+            let e = parse_expr();
+            body = {"type": "block", "stmts": [{"type": "expr_stmt", "expr": e}]};
+        }
+        if at("PUNCT", ",") { advance(); }
+        arms.push({"pattern": pattern, "body": body});
+    }
+    expect("PUNCT", "}");
+    return {"type": "match", "expr": expr, "arms": arms};
+}
+
+fn parse_class() {
+    advance(); // skip class
+    let name = expect("IDENT", none)["value"];
+    let parent = none;
+    if at("KEYWORD", "extends") {
+        advance();
+        parent = expect("IDENT", none)["value"];
+    }
+    expect("PUNCT", "{");
+    let fields = [];
+    let methods = [];
+    while !at("PUNCT", "}") {
+        if at("KEYWORD", "fn") {
+            methods.push(parse_fn());
+        } else {
+            // Field declaration
+            let fname = expect("IDENT", none)["value"];
+            let ftype = none;
+            if at("PUNCT", ":") {
+                advance();
+                ftype = expect("IDENT", none)["value"];
+            }
+            let fdefault = none;
+            if at("OP", "=") {
+                advance();
+                fdefault = parse_expr();
+            }
+            skip_semi();
+            fields.push({"name": fname, "type_ann": ftype, "default": fdefault});
+        }
+    }
+    expect("PUNCT", "}");
+    return {"type": "class", "name": name, "parent": parent,
+            "fields": fields, "methods": methods};
+}
+
+fn parse_struct() {
+    advance(); // skip struct
+    let name = expect("IDENT", none)["value"];
+    expect("PUNCT", "{");
+    let fields = [];
+    while !at("PUNCT", "}") {
+        let fname = expect("IDENT", none)["value"];
+        let ftype = none;
+        if at("PUNCT", ":") {
+            advance();
+            ftype = expect("IDENT", none)["value"];
+        }
+        skip_semi();
+        if at("PUNCT", ",") { advance(); }
+        fields.push({"name": fname, "type_ann": ftype});
+    }
+    expect("PUNCT", "}");
+    return {"type": "struct", "name": name, "fields": fields};
+}
+
+fn parse_enum() {
+    advance(); // skip enum
+    let name = expect("IDENT", none)["value"];
+    expect("PUNCT", "{");
+    let variants = [];
+    while !at("PUNCT", "}") {
+        variants.push(expect("IDENT", none)["value"]);
+        if at("PUNCT", ",") { advance(); }
+    }
+    expect("PUNCT", "}");
+    return {"type": "enum", "name": name, "variants": variants};
+}
+
+fn parse_import() {
+    advance(); // skip import
+    let path = expect("STR", none)["value"];
+    let alias = none;
+    if at("KEYWORD", "as") {
+        advance();
+        alias = expect("IDENT", none)["value"];
+    }
+    skip_semi();
+    return {"type": "import", "path": path, "alias": alias};
+}
+
+fn parse_module() {
+    advance(); // skip module
+    let name = expect("IDENT", none)["value"];
+    let body = parse_block();
+    return {"type": "module", "name": name, "body": body};
+}
+
+fn parse_macro() {
+    advance(); // skip macro
+    let name = expect("IDENT", none)["value"];
+    let params = parse_params();
+    let body = parse_block();
+    return {"type": "macro", "name": name, "params": params, "body": body};
+}
+
+// ── Expression parsing (precedence climbing) ───────────────────────────────
+
+fn parse_expr() {
+    return parse_pipe();
+}
+
+fn parse_pipe() {
+    let left = parse_or();
+    while at("OP", "|>") {
+        advance();
+        let right = parse_or();
+        left = {"type": "pipe", "left": left, "right": right};
+    }
+    return left;
+}
+
+fn parse_or() {
+    let left = parse_and();
+    while at("OP", "||") || at("KEYWORD", "or") {
+        advance();
+        let right = parse_and();
+        left = {"type": "binop", "op": "||", "left": left, "right": right};
+    }
+    return left;
+}
+
+fn parse_and() {
+    let left = parse_equality();
+    while at("OP", "&&") || at("KEYWORD", "and") {
+        advance();
+        let right = parse_equality();
+        left = {"type": "binop", "op": "&&", "left": left, "right": right};
+    }
+    return left;
+}
+
+fn parse_equality() {
+    let left = parse_comparison();
+    while at("OP", "==") || at("OP", "!=") {
+        let op = advance()["value"];
+        let right = parse_comparison();
+        left = {"type": "binop", "op": op, "left": left, "right": right};
+    }
+    return left;
+}
+
+fn parse_comparison() {
+    let left = parse_bitor();
+    while at("OP", "<") || at("OP", ">") || at("OP", "<=") || at("OP", ">=") {
+        let op = advance()["value"];
+        let right = parse_bitor();
+        left = {"type": "binop", "op": op, "left": left, "right": right};
+    }
+    // 'in' keyword as binary op
+    if at("KEYWORD", "in") {
+        advance();
+        let right = parse_bitor();
+        left = {"type": "binop", "op": "in", "left": left, "right": right};
+    }
+    return left;
+}
+
+fn parse_bitor() {
+    let left = parse_bitxor();
+    while at("OP", "|") {
+        advance();
+        let right = parse_bitxor();
+        left = {"type": "binop", "op": "|", "left": left, "right": right};
+    }
+    return left;
+}
+
+fn parse_bitxor() {
+    let left = parse_bitand();
+    while at("OP", "^") {
+        advance();
+        let right = parse_bitand();
+        left = {"type": "binop", "op": "^", "left": left, "right": right};
+    }
+    return left;
+}
+
+fn parse_bitand() {
+    let left = parse_add();
+    while at("OP", "&") {
+        advance();
+        let right = parse_add();
+        left = {"type": "binop", "op": "&", "left": left, "right": right};
+    }
+    return left;
+}
+
+fn parse_add() {
+    let left = parse_mul();
+    while at("OP", "+") || at("OP", "-") {
+        let op = advance()["value"];
+        let right = parse_mul();
+        left = {"type": "binop", "op": op, "left": left, "right": right};
+    }
+    return left;
+}
+
+fn parse_mul() {
+    let left = parse_unary();
+    while at("OP", "*") || at("OP", "/") || at("OP", "%") {
+        let op = advance()["value"];
+        let right = parse_unary();
+        left = {"type": "binop", "op": op, "left": left, "right": right};
+    }
+    return left;
+}
+
+fn parse_unary() {
+    if at("OP", "-") {
+        advance();
+        let operand = parse_unary();
+        return {"type": "unary", "op": "-", "operand": operand};
+    }
+    if at("OP", "!") || at("KEYWORD", "not") {
+        advance();
+        let operand = parse_unary();
+        return {"type": "unary", "op": "!", "operand": operand};
+    }
+    return parse_postfix();
+}
+
+fn parse_postfix() {
+    let expr = parse_primary();
+    while true {
+        // Member access: expr.name
+        if at("PUNCT", ".") {
+            advance();
+            let name = expect("IDENT", none)["value"];
+            expr = {"type": "member", "obj": expr, "member": name};
+            continue;
+        }
+        // Call: expr(args)
+        if at("PUNCT", "(") {
+            advance();
+            let args = [];
+            while !at("PUNCT", ")") {
+                args.push(parse_expr());
+                if at("PUNCT", ",") { advance(); }
+            }
+            expect("PUNCT", ")");
+            expr = {"type": "call", "callee": expr, "args": args};
+            continue;
+        }
+        // Index: expr[idx]
+        if at("PUNCT", "[") {
+            advance();
+            let idx = parse_expr();
+            expect("PUNCT", "]");
+            expr = {"type": "index", "obj": expr, "index": idx};
+            continue;
+        }
+        break;
+    }
+    return expr;
+}
+
+fn parse_primary() {
+    let t = peek();
+    let tp = t["type"];
+    let v = t["value"];
+
+    // Integers
+    if tp == "INT" {
+        advance();
+        return {"type": "int_lit", "value": int(v)};
+    }
+
+    // Floats
+    if tp == "FLOAT" {
+        advance();
+        return {"type": "float_lit", "value": float(v)};
+    }
+
+    // Strings
+    if tp == "STR" {
+        advance();
+        return {"type": "str_lit", "value": v};
+    }
+
+    // F-strings
+    if tp == "FSTR" {
+        advance();
+        return {"type": "fstr", "parts": v};
+    }
+
+    // Shell expression
+    if tp == "SHELL" {
+        advance();
+        return {"type": "shell", "cmd": v};
+    }
+
+    // Keywords that are literal values
+    if tp == "KEYWORD" {
+        if v == "true" {
+            advance();
+            return {"type": "bool_lit", "value": true};
+        }
+        if v == "false" {
+            advance();
+            return {"type": "bool_lit", "value": false};
+        }
+        if v == "none" {
+            advance();
+            return {"type": "none_lit"};
+        }
+        if v == "some" {
+            advance();
+            expect("PUNCT", "(");
+            let inner = parse_expr();
+            expect("PUNCT", ")");
+            return {"type": "some", "value": inner};
+        }
+        if v == "ok" {
+            advance();
+            expect("PUNCT", "(");
+            let inner = parse_expr();
+            expect("PUNCT", ")");
+            return {"type": "ok", "value": inner};
+        }
+        if v == "err" {
+            advance();
+            expect("PUNCT", "(");
+            let inner = parse_expr();
+            expect("PUNCT", ")");
+            return {"type": "err", "value": inner};
+        }
+        if v == "fn" {
+            // Anonymous function
+            return parse_fn();
+        }
+        if v == "comptime" {
+            advance();
+            let body = parse_block();
+            return {"type": "comptime", "body": body};
+        }
+    }
+
+    // Closure: |params| expr  or |params| { ... }
+    if tp == "OP" && v == "|" {
+        advance();
+        let params = [];
+        while !at("OP", "|") {
+            params.push(expect("IDENT", none)["value"]);
+            if at("PUNCT", ",") { advance(); }
+        }
+        expect("OP", "|");
+        let body = none;
+        if at("PUNCT", "{") {
+            body = parse_block();
+        } else {
+            let e = parse_expr();
+            body = {"type": "block", "stmts": [{"type": "return", "value": e}]};
+        }
+        return {"type": "closure", "params": params, "body": body};
+    }
+
+    // Identifier
+    if tp == "IDENT" {
+        advance();
+        return {"type": "ident", "name": v};
+    }
+
+    // Parenthesized expression
+    if tp == "PUNCT" && v == "(" {
+        advance();
+        let expr = parse_expr();
+        expect("PUNCT", ")");
+        return expr;
+    }
+
+    // Array literal
+    if tp == "PUNCT" && v == "[" {
+        advance();
+        let elems = [];
+        while !at("PUNCT", "]") {
+            elems.push(parse_expr());
+            if at("PUNCT", ",") { advance(); }
+        }
+        expect("PUNCT", "]");
+        return {"type": "array_lit", "elements": elems};
+    }
+
+    // Map literal
+    if tp == "PUNCT" && v == "{" {
+        advance();
+        let entries = [];
+        while !at("PUNCT", "}") {
+            let key = parse_expr();
+            expect("PUNCT", ":");
+            let val = parse_expr();
+            entries.push({"key": key, "value": val});
+            if at("PUNCT", ",") { advance(); }
+        }
+        expect("PUNCT", "}");
+        return {"type": "map_lit", "entries": entries};
+    }
+
+    panic(f"Parse error line {t[\"line\"]}: unexpected {tp} '{v}'");
+}

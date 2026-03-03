@@ -1,0 +1,227 @@
+// Deltoo Concurrency Demo
+// Goroutines, channels, async/await
+// Run: python deltoo.py run examples/concurrency.dt
+
+fn worker(id: int, ch: any) {
+    for i in 0..3 {
+        let msg = f"worker-{id} item-{i}";
+        println(f"  [{id}] sending: {msg}");
+        ch <- msg;
+        sleep(0.05);
+    }
+}
+
+fn producer(ch: any, items: []str) {
+    for item in items {
+        println(f"  Producer: {item}");
+        ch <- item;
+        sleep(0.01);
+    }
+    ch <- "__done__";
+}
+
+fn main() {
+    println("=== Deltoo Concurrency Demo ===\n");
+
+    // ── Channels ──────────────────────────────────────────────────────────────
+
+    println("--- Channels ---");
+    let ch = chan<str>(10);
+
+    // Launch workers as goroutines
+    go worker(1, ch);
+    go worker(2, ch);
+    go worker(3, ch);
+
+    // Wait a bit for goroutines to run
+    sleep(0.5);
+
+    println("Channel demo (non-blocking — goroutines run in background)");
+
+    // ── Deferred cleanup ──────────────────────────────────────────────────────
+
+    println("\n--- Defer ---");
+
+    fn with_cleanup(name: str) {
+        defer println(f"  cleanup: {name} closed");
+        defer println(f"  cleanup: {name} flushed");
+        println(f"  opening {name}");
+        println(f"  working with {name}");
+        // defers run in reverse order: flushed, then closed
+    }
+
+    with_cleanup("resource-A");
+    with_cleanup("resource-B");
+
+    // ── Result / Option chaining ──────────────────────────────────────────────
+
+    println("\n--- Result & Option Chaining ---");
+
+    fn safe_divide(a: float, b: float) -> Result<float, str> {
+        if b == 0.0 {
+            return err("division by zero");
+        }
+        return ok(a / b);
+    }
+
+    fn parse_num(s: str) -> Result<float, str> {
+        // Attempt conversion
+        let n = float(s);
+        if isNone(n) {
+            return err(f"cannot parse '{s}' as float");
+        }
+        return ok(n);
+    }
+
+    fn process(a_str: str, b_str: str) -> Result<str, str> {
+        let a = parse_num(a_str)?;
+        let b = parse_num(b_str)?;
+        let result = safe_divide(a, b)?;
+        return ok(f"{a} / {b} = {result:.4f}");
+    }
+
+    let cases = [
+        ("10.0", "4.0"),
+        ("15.0", "0.0"),
+        ("abc",  "3.0"),
+        ("9.0",  "3.0"),
+    ];
+
+    for c in cases {
+        let r = process(c[0], c[1]);
+        match r {
+            ok(msg) => println(f"  OK: {msg}"),
+            err(e)  => println(f"  Err: {e}"),
+        }
+    }
+
+    // ── Pattern matching ──────────────────────────────────────────────────────
+
+    println("\n--- Pattern Matching ---");
+
+    enum Shape {
+        Circle(float),
+        Rectangle(float, float),
+        Triangle(float, float, float),
+    }
+
+    fn area(s: any) -> float {
+        match s {
+            "Circle"    => math.PI * s.value * s.value,
+            "Rectangle" => s.value[0] * s.value[1],
+            _           => 0.0,
+        }
+    }
+
+    // Using match on values
+    let values = [0, 1, 2, 3, 15, 42, 100];
+    for v in values {
+        let label = match v {
+            0        => "zero",
+            1        => "one",
+            2..=9    => "small",
+            10..=99  => "medium",
+            _        => "large",
+        };
+        println(f"  {v} => {label}");
+    }
+
+    // ── Closures and higher-order functions ───────────────────────────────────
+
+    println("\n--- Closures & Higher-Order Functions ---");
+
+    fn make_adder(n: int) -> any {
+        return |x| x + n;
+    }
+
+    fn make_multiplier(n: int) -> any {
+        return |x| x * n;
+    }
+
+    fn compose(f: any, g: any) -> any {
+        return |x| f(g(x));
+    }
+
+    let add5 = make_adder(5);
+    let mul3 = make_multiplier(3);
+    let add5_then_mul3 = compose(mul3, add5);
+
+    println(f"  add5(10) = {add5(10)}");
+    println(f"  mul3(10) = {mul3(10)}");
+    println(f"  compose(mul3, add5)(10) = {add5_then_mul3(10)}");
+
+    // Pipe operator
+    let result = 10
+        |> add5
+        |> mul3;
+    println(f"  10 |> add5 |> mul3 = {result}");
+
+    // ── Async/Await (simulated) ───────────────────────────────────────────────
+
+    println("\n--- Async/Await ---");
+
+    async fn fetch_data(url: str) -> Result<str, str> {
+        // In real Deltoo this would be non-blocking HTTP
+        sleep(0.01);
+        return ok(f"data from {url}");
+    }
+
+    async fn fetch_all(urls: []str) -> []str {
+        var results = [];
+        for url in urls {
+            let r = await fetch_data(url);
+            match r {
+                ok(data) => results.push(data),
+                err(e)   => results.push(f"error: {e}"),
+            }
+        }
+        return results;
+    }
+
+    let urls = [
+        "https://api.example.com/users",
+        "https://api.example.com/posts",
+        "https://api.example.com/comments",
+    ];
+
+    let responses = await fetch_all(urls);
+    for resp in responses {
+        println(f"  {resp}");
+    }
+
+    // ── do-while ─────────────────────────────────────────────────────────────
+
+    println("\n--- Do-While Loop ---");
+    var attempt = 0;
+    do {
+        attempt += 1;
+        println(f"  Attempt {attempt}");
+    } while attempt < 3;
+
+    // ── C-style for ───────────────────────────────────────────────────────────
+
+    println("\n--- C-style For Loop ---");
+    for (let i = 0; i < 5; i += 1) {
+        print(f"{i} ");
+    }
+    println("");
+
+    // ── Labeled break ─────────────────────────────────────────────────────────
+
+    println("\n--- Labeled Break ---");
+    outer:
+    for i in 0..5 {
+        for j in 0..5 {
+            if i + j >= 6 {
+                println(f"  Breaking outer at i={i}, j={j}");
+                break outer;
+            }
+            print(f"({i},{j}) ");
+        }
+    }
+    println("");
+
+    println("\nConcurrency demo complete!");
+}
+
+main();

@@ -1,0 +1,27 @@
+// Pure-script API endpoint — returns JSON
+header("Content-Type", "application/json");
+
+let method = request.method;
+let path   = request.path;
+
+import python "json" as pyjson;
+
+if method == "GET" {
+    let data = {
+        "lang":    "Wakawaka",
+        "version": "1.0.0",
+        "method":  method,
+        "path":    path,
+        "params":  request.GET,
+    };
+    echo(pyjson.dumps(data));
+} else if method == "POST" {
+    let data = {
+        "received": request.POST,
+        "body_len": len(request.body),
+    };
+    echo(pyjson.dumps(data));
+} else {
+    status(405);
+    echo("{\"error\": \"Method not allowed\"}");
+}

@@ -1,0 +1,37 @@
+<?wk
+let name = request.GET["name"] ?? "World";
+let count = int(request.GET["n"] ?? "3");
+?><!DOCTYPE html>
+<html>
+<head><title>Wakawaka Web Demo</title>
+<style>
+  body { font-family: sans-serif; max-width: 600px; margin: 40px auto; }
+  h1   { color: #2a5caa; }
+  .item { background: #f0f4ff; padding: 8px 14px; margin: 6px 0; border-radius: 6px; }
+  form { margin-top: 20px; }
+  input { padding: 6px; margin-right: 8px; border: 1px solid #ccc; border-radius: 4px; }
+  button { padding: 6px 16px; background: #2a5caa; color: white; border: none; border-radius: 4px; cursor: pointer; }
+</style>
+</head>
+<body>
+<h1>Hello, <?= name ?>!</h1>
+<p>Powered by <strong>Wakawaka <?= "1.0.0" ?></strong></p>
+
+<h2>Dynamic List (n=<?= count ?>)</h2>
+<?wk for i in 1..=count { ?>
+  <div class="item">Item <?= i ?> — value = <?= i * i ?></div>
+<?wk } ?>
+
+<h2>Request Info</h2>
+<ul>
+  <li><strong>Method:</strong> <?= request.method ?></li>
+  <li><strong>Path:</strong>   <?= request.path ?></li>
+</ul>
+
+<form method="get">
+  <label>Name: <input name="name" value="<?= name ?>"></label>
+  <label>Items: <input name="n" type="number" value="<?= count ?>" style="width:60px"></label>
+  <button type="submit">Update</button>
+</form>
+</body>
+</html>

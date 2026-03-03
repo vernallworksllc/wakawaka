@@ -1,0 +1,1689 @@
+// ===========================================================================
+// Wakawaka Bootstrap Compiler — Self-Hosting
+// Reads .wk source, tokenizes, parses to AST, generates C99, invokes gcc.
+// All stages in a single file for bootstrap simplicity.
+// ===========================================================================
+
+const VERSION = "1.0.0";
+
+// ===========================================================================
+// LEXER
+// ===========================================================================
+
+const KEYWORDS = [
+    "let", "var", "const", "fn", "class", "struct", "enum",
+    "if", "else", "while", "for", "do", "match",
+    "return", "break", "continue",
+    "import", "as", "in",
+    "true", "false", "none",
+    "some", "ok", "err",
+    "and", "or", "not",
+    "macro", "module", "comptime",
+    "go", "chan", "defer",
+    "pub", "priv", "static",
+    "extends", "impl", "interface",
+    "async", "await", "spawn",
+    "is", "new", "self", "super",
+    "actor", "receive", "unsafe",
+];
+
+fn is_alpha(c) {
+    return (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || c == "_";
+}
+
+fn is_digit(c) {
+    return c >= "0" && c <= "9";
+}
+
+fn is_alnum(c) {
+    return is_alpha(c) || is_digit(c);
+}
+
+fn is_space(c) {
+    return c == " " || c == "\t" || c == "\r" || c == "\n";
+}
+
+fn tok(type, value, line) {
+    return {"type": type, "value": value, "line": line};
+}
+
+fn tokenize(source) {
+    var tokens = [];
+    var i = 0;
+    var line = 1;
+    var slen = len(source);
+
+    while i < slen {
+        var c = source[i];
+
+        if is_space(c) {
+            if c == "\n" { line = line + 1; }
+            i = i + 1;
+            continue;
+        }
+
+        // Single-line comment
+        if c == "/" && i + 1 < slen && source[i + 1] == "/" {
+            while i < slen && source[i] != "\n" { i = i + 1; }
+            continue;
+        }
+
+        // Multi-line comment
+        if c == "/" && i + 1 < slen && source[i + 1] == "*" {
+            i = i + 2;
+            while i + 1 < slen {
+                if source[i] == "\n" { line = line + 1; }
+                if source[i] == "*" && source[i + 1] == "/" {
+                    i = i + 2;
+                    break;
+                }
+                i = i + 1;
+            }
+            continue;
+        }
+
+        // Numbers
+        if is_digit(c) {
+            var start = i;
+            var is_float = false;
+            while i < slen && is_digit(source[i]) { i = i + 1; }
+            if i < slen && source[i] == "." && i + 1 < slen && is_digit(source[i + 1]) {
+                is_float = true;
+                i = i + 1;
+                while i < slen && is_digit(source[i]) { i = i + 1; }
+            }
+            var num_str = source.slice(start, i);
+            if is_float {
+                tokens.push(tok("FLOAT", num_str, line));
+            } else {
+                tokens.push(tok("INT", num_str, line));
+            }
+            continue;
+        }
+
+        // f-strings: f"..." (must check BEFORE identifiers)
+        if c == "f" && i + 1 < slen && source[i + 1] == "\"" {
+            i = i + 2;
+            var parts = [];
+            var buf = "";
+            while i < slen && source[i] != "\"" {
+                if source[i] == "\\" && i + 1 < slen {
+                    var nc = source[i + 1];
+                    if nc == "n" { buf = buf + "\n"; }
+                    else if nc == "t" { buf = buf + "\t"; }
+                    else if nc == "\\" { buf = buf + "\\"; }
+                    else if nc == "\"" { buf = buf + "\""; }
+                    else if nc == "r" { buf = buf + "\r"; }
+                    else if nc == "{" { buf = buf + "{"; }
+                    else { buf = buf + nc; }
+                    i = i + 2;
+                    continue;
+                }
+                // {{ → literal {
+                if source[i] == "{" && i + 1 < slen && source[i + 1] == "{" {
+                    buf = buf + "{";
+                    i = i + 2;
+                    continue;
+                }
+                // }} → literal }
+                if source[i] == "}" && i + 1 < slen && source[i + 1] == "}" {
+                    buf = buf + "}";
+                    i = i + 2;
+                    continue;
+                }
+                if source[i] == "{" {
+                    if len(buf) > 0 {
+                        parts.push({"kind": "lit", "val": buf});
+                        buf = "";
+                    }
+                    i = i + 1;
+                    var expr_start = i;
+                    var depth = 1;
+                    while i < slen && depth > 0 {
+                        if source[i] == "{" { depth = depth + 1; }
+                        if source[i] == "}" { depth = depth - 1; }
+                        if depth > 0 { i = i + 1; }
+                    }
+                    var expr_text = source.slice(expr_start, i);
+                    parts.push({"kind": "expr", "val": expr_text});
+                    i = i + 1;
+                    continue;
+                }
+                if source[i] == "\n" { line = line + 1; }
+                buf = buf + source[i];
+                i = i + 1;
+            }
+            if len(buf) > 0 {
+                parts.push({"kind": "lit", "val": buf});
+            }
+            i = i + 1;
+            tokens.push(tok("FSTR", parts, line));
+            continue;
+        }
+
+        // Identifiers and keywords
+        if is_alpha(c) {
+            var start = i;
+            while i < slen && is_alnum(source[i]) { i = i + 1; }
+            var word = source.slice(start, i);
+            if KEYWORDS.contains(word) {
+                tokens.push(tok("KEYWORD", word, line));
+            } else {
+                tokens.push(tok("IDENT", word, line));
+            }
+            continue;
+        }
+
+        // Strings
+        if c == "\"" {
+            i = i + 1;
+            var buf = "";
+            while i < slen && source[i] != "\"" {
+                if source[i] == "\\" && i + 1 < slen {
+                    var nc = source[i + 1];
+                    if nc == "n" { buf = buf + "\n"; }
+                    else if nc == "t" { buf = buf + "\t"; }
+                    else if nc == "\\" { buf = buf + "\\"; }
+                    else if nc == "\"" { buf = buf + "\""; }
+                    else if nc == "r" { buf = buf + "\r"; }
+                    else { buf = buf + nc; }
+                    i = i + 2;
+                    continue;
+                }
+                if source[i] == "\n" { line = line + 1; }
+                buf = buf + source[i];
+                i = i + 1;
+            }
+            i = i + 1;
+            tokens.push(tok("STR", buf, line));
+            continue;
+        }
+
+        // Shell expression: $`...` with {expr} interpolation
+        if c == "$" && i + 1 < slen && source[i + 1] == "`" {
+            i = i + 2;
+            var parts = [];
+            var buf = "";
+            while i < slen && source[i] != "`" {
+                if source[i] == "{" {
+                    if len(buf) > 0 {
+                        parts.push({"kind": "lit", "val": buf});
+                        buf = "";
+                    }
+                    i = i + 1;
+                    var expr_start = i;
+                    var depth = 1;
+                    while i < slen && depth > 0 {
+                        if source[i] == "{" { depth = depth + 1; }
+                        if source[i] == "}" { depth = depth - 1; }
+                        if depth > 0 { i = i + 1; }
+                    }
+                    var expr_text = source.slice(expr_start, i);
+                    parts.push({"kind": "expr", "val": expr_text});
+                    i = i + 1;
+                    continue;
+                }
+                buf = buf + source[i];
+                i = i + 1;
+            }
+            if len(buf) > 0 {
+                parts.push({"kind": "lit", "val": buf});
+            }
+            i = i + 1;
+            tokens.push(tok("SHELL", parts, line));
+            continue;
+        }
+
+        // Two-char operators
+        if i + 1 < slen {
+            var two = source.slice(i, i + 2);
+            if two == "==" || two == "!=" || two == "<=" || two == ">=" ||
+               two == "&&" || two == "||" || two == "+=" || two == "-=" ||
+               two == "*=" || two == "/=" || two == "%=" || two == "**" ||
+               two == "->" || two == "=>" || two == "|>" || two == "<-" ||
+               two == ".." || two == "::" || two == "?." || two == "??" ||
+               two == "<<" || two == ">>" {
+                tokens.push(tok("OP", two, line));
+                i = i + 2;
+                continue;
+            }
+        }
+
+        // Single-char operators
+        if c == "+" || c == "-" || c == "*" || c == "/" || c == "%" ||
+           c == "=" || c == "<" || c == ">" || c == "!" || c == "~" ||
+           c == "&" || c == "|" || c == "^" {
+            tokens.push(tok("OP", c, line));
+            i = i + 1;
+            continue;
+        }
+
+        // Punctuation
+        if c == "(" || c == ")" || c == "{" || c == "}" ||
+           c == "[" || c == "]" || c == "," || c == "." ||
+           c == ":" || c == ";" || c == "@" || c == "?" ||
+           c == "#" {
+            tokens.push(tok("PUNCT", c, line));
+            i = i + 1;
+            continue;
+        }
+
+        i = i + 1;
+    }
+
+    tokens.push(tok("EOF", "", line));
+    return tokens;
+}
+
+// ===========================================================================
+// PARSER
+// ===========================================================================
+
+var _tokens = [];
+var _pos = 0;
+
+fn peek() {
+    if _pos < len(_tokens) { return _tokens[_pos]; }
+    return {"type": "EOF", "value": "", "line": 0};
+}
+
+fn advance() {
+    var t = peek();
+    _pos = _pos + 1;
+    return t;
+}
+
+fn at(type, val) {
+    var t = peek();
+    if val == none { return t["type"] == type; }
+    return t["type"] == type && t["value"] == val;
+}
+
+fn expect(type, val) {
+    var t = advance();
+    var tline = t["line"];
+    var ttype = t["type"];
+    var tval = t["value"];
+    if val != none {
+        if ttype != type || tval != val {
+            panic("Parse error line " + str(tline) + ": expected " + type + " '" + str(val) + "', got " + ttype + " '" + str(tval) + "'");
+        }
+    } else {
+        if ttype != type {
+            panic("Parse error line " + str(tline) + ": expected " + type + ", got " + ttype + " '" + str(tval) + "'");
+        }
+    }
+    return t;
+}
+
+fn wk_parse(tokens) {
+    _tokens = tokens;
+    _pos = 0;
+    var stmts = [];
+    while !at("EOF", none) {
+        var s = parse_stmt();
+        if s != none { stmts.push(s); }
+    }
+    return {"type": "program", "stmts": stmts};
+}
+
+fn parse_stmt() {
+    var t = peek();
+    var tp = t["type"];
+    var v = t["value"];
+
+    if tp == "KEYWORD" {
+        if v == "let" || v == "var" { return parse_let(); }
+        if v == "const" { return parse_const(); }
+        if v == "fn" { return parse_fn(); }
+        if v == "if" { return parse_if(); }
+        if v == "while" { return parse_while(); }
+        if v == "for" { return parse_for(); }
+        if v == "return" { return parse_return(); }
+        if v == "break" { advance(); skip_semi(); return {"type": "break"}; }
+        if v == "continue" { advance(); skip_semi(); return {"type": "continue"}; }
+        if v == "match" { return parse_match(); }
+        if v == "class" { return parse_class(); }
+        if v == "struct" { return parse_struct(); }
+        if v == "enum" { return parse_enum(); }
+        if v == "import" { return parse_import(); }
+        if v == "module" { return parse_module(); }
+        if v == "macro" { return parse_macro(); }
+    }
+
+    var expr = parse_expr();
+
+    if at("OP", "=") {
+        advance();
+        var val = parse_expr();
+        skip_semi();
+        return {"type": "assign", "target": expr, "value": val};
+    }
+
+    var t2 = peek();
+    if t2["type"] == "OP" {
+        var op = t2["value"];
+        if op == "+=" || op == "-=" || op == "*=" || op == "/=" || op == "%=" {
+            advance();
+            var val = parse_expr();
+            var base_op = op.slice(0, 1);
+            skip_semi();
+            return {"type": "assign", "target": expr,
+                    "value": {"type": "binop", "op": base_op, "left": expr, "right": val}};
+        }
+    }
+
+    skip_semi();
+    return {"type": "expr_stmt", "expr": expr};
+}
+
+fn skip_semi() {
+    if at("PUNCT", ";") { advance(); }
+}
+
+fn parse_block() {
+    expect("PUNCT", "{");
+    var stmts = [];
+    while !at("PUNCT", "}") && !at("EOF", none) {
+        var s = parse_stmt();
+        if s != none { stmts.push(s); }
+    }
+    expect("PUNCT", "}");
+    return {"type": "block", "stmts": stmts};
+}
+
+fn parse_let() {
+    advance();
+    var name = expect("IDENT", none)["value"];
+    var type_ann = none;
+    if at("PUNCT", ":") { advance(); type_ann = expect("IDENT", none)["value"]; }
+    var value = none;
+    if at("OP", "=") { advance(); value = parse_expr(); }
+    skip_semi();
+    return {"type": "let", "name": name, "type_ann": type_ann, "value": value};
+}
+
+fn parse_const() {
+    advance();
+    var name = expect("IDENT", none)["value"];
+    var type_ann = none;
+    if at("PUNCT", ":") { advance(); type_ann = expect("IDENT", none)["value"]; }
+    expect("OP", "=");
+    var value = parse_expr();
+    skip_semi();
+    return {"type": "const", "name": name, "type_ann": type_ann, "value": value};
+}
+
+fn parse_fn() {
+    advance();
+    var name = expect("IDENT", none)["value"];
+    var params = parse_params();
+    var return_type = none;
+    if at("OP", "->") { advance(); return_type = expect("IDENT", none)["value"]; }
+    var body = parse_block();
+    return {"type": "fn", "name": name, "params": params,
+            "return_type": return_type, "body": body};
+}
+
+fn parse_params() {
+    expect("PUNCT", "(");
+    var params = [];
+    while !at("PUNCT", ")") {
+        var p = expect("IDENT", none)["value"];
+        var type_ann = none;
+        if at("PUNCT", ":") { advance(); type_ann = expect("IDENT", none)["value"]; }
+        var default_val = none;
+        if at("OP", "=") { advance(); default_val = parse_expr(); }
+        params.push({"name": p, "type_ann": type_ann, "default": default_val});
+        if at("PUNCT", ",") { advance(); }
+    }
+    expect("PUNCT", ")");
+    return params;
+}
+
+fn parse_if() {
+    advance();
+    var cond = parse_expr();
+    var then_block = parse_block();
+    var elseifs = [];
+    var else_block = none;
+    while at("KEYWORD", "else") {
+        advance();
+        if at("KEYWORD", "if") {
+            advance();
+            var eif_cond = parse_expr();
+            var eif_body = parse_block();
+            elseifs.push({"cond": eif_cond, "body": eif_body});
+        } else {
+            else_block = parse_block();
+            break;
+        }
+    }
+    return {"type": "if", "cond": cond, "then": then_block,
+            "elseifs": elseifs, "else": else_block};
+}
+
+fn parse_while() {
+    advance();
+    var cond = parse_expr();
+    var body = parse_block();
+    return {"type": "while", "cond": cond, "body": body};
+}
+
+fn parse_for() {
+    advance();
+    var var_name = expect("IDENT", none)["value"];
+    expect("KEYWORD", "in");
+    var iter = parse_expr();
+    var body = parse_block();
+    return {"type": "for_in", "var": var_name, "iter": iter, "body": body};
+}
+
+fn parse_return() {
+    advance();
+    var value = none;
+    if !at("PUNCT", ";") && !at("PUNCT", "}") && !at("EOF", none) {
+        value = parse_expr();
+    }
+    skip_semi();
+    return {"type": "return", "value": value};
+}
+
+fn parse_match() {
+    advance();
+    var expr = parse_expr();
+    expect("PUNCT", "{");
+    var arms = [];
+    while !at("PUNCT", "}") {
+        var pattern = parse_expr();
+        expect("OP", "=>");
+        var body = none;
+        if at("PUNCT", "{") {
+            body = parse_block();
+        } else {
+            var e = parse_expr();
+            body = {"type": "block", "stmts": [{"type": "expr_stmt", "expr": e}]};
+        }
+        if at("PUNCT", ",") { advance(); }
+        arms.push({"pattern": pattern, "body": body});
+    }
+    expect("PUNCT", "}");
+    return {"type": "match", "expr": expr, "arms": arms};
+}
+
+fn parse_class() {
+    advance();
+    var name = expect("IDENT", none)["value"];
+    var parent = none;
+    if at("KEYWORD", "extends") { advance(); parent = expect("IDENT", none)["value"]; }
+    expect("PUNCT", "{");
+    var fields = [];
+    var methods = [];
+    while !at("PUNCT", "}") {
+        if at("KEYWORD", "fn") {
+            methods.push(parse_fn());
+        } else {
+            var fname = expect("IDENT", none)["value"];
+            var ftype = none;
+            if at("PUNCT", ":") { advance(); ftype = expect("IDENT", none)["value"]; }
+            var fdefault = none;
+            if at("OP", "=") { advance(); fdefault = parse_expr(); }
+            skip_semi();
+            fields.push({"name": fname, "type_ann": ftype, "default": fdefault});
+        }
+    }
+    expect("PUNCT", "}");
+    return {"type": "class", "name": name, "parent": parent,
+            "fields": fields, "methods": methods};
+}
+
+fn parse_struct() {
+    advance();
+    var name = expect("IDENT", none)["value"];
+    expect("PUNCT", "{");
+    var fields = [];
+    while !at("PUNCT", "}") {
+        var fname = expect("IDENT", none)["value"];
+        var ftype = none;
+        if at("PUNCT", ":") { advance(); ftype = expect("IDENT", none)["value"]; }
+        skip_semi();
+        if at("PUNCT", ",") { advance(); }
+        fields.push({"name": fname, "type_ann": ftype});
+    }
+    expect("PUNCT", "}");
+    return {"type": "struct", "name": name, "fields": fields};
+}
+
+fn parse_enum() {
+    advance();
+    var name = expect("IDENT", none)["value"];
+    expect("PUNCT", "{");
+    var variants = [];
+    while !at("PUNCT", "}") {
+        variants.push(expect("IDENT", none)["value"]);
+        if at("PUNCT", ",") { advance(); }
+    }
+    expect("PUNCT", "}");
+    return {"type": "enum", "name": name, "variants": variants};
+}
+
+fn parse_import() {
+    advance();
+    var path = expect("STR", none)["value"];
+    var alias = none;
+    if at("KEYWORD", "as") { advance(); alias = expect("IDENT", none)["value"]; }
+    skip_semi();
+    return {"type": "import", "path": path, "alias": alias};
+}
+
+fn parse_module() {
+    advance();
+    var name = expect("IDENT", none)["value"];
+    var body = parse_block();
+    return {"type": "module", "name": name, "body": body};
+}
+
+fn parse_macro() {
+    advance();
+    var name = expect("IDENT", none)["value"];
+    var params = parse_params();
+    var body = parse_block();
+    return {"type": "macro", "name": name, "params": params, "body": body};
+}
+
+// ── Expression parsing ─────────────────────────────────────────────────────
+
+fn parse_expr() {
+    return parse_pipe();
+}
+
+fn parse_pipe() {
+    var left = parse_or();
+    while at("OP", "|>") {
+        advance();
+        var right = parse_or();
+        left = {"type": "pipe", "left": left, "right": right};
+    }
+    return left;
+}
+
+fn parse_or() {
+    var left = parse_and();
+    while at("OP", "||") || at("KEYWORD", "or") {
+        advance();
+        var right = parse_and();
+        left = {"type": "binop", "op": "||", "left": left, "right": right};
+    }
+    return left;
+}
+
+fn parse_and() {
+    var left = parse_equality();
+    while at("OP", "&&") || at("KEYWORD", "and") {
+        advance();
+        var right = parse_equality();
+        left = {"type": "binop", "op": "&&", "left": left, "right": right};
+    }
+    return left;
+}
+
+fn parse_equality() {
+    var left = parse_comparison();
+    while at("OP", "==") || at("OP", "!=") {
+        var op = advance()["value"];
+        var right = parse_comparison();
+        left = {"type": "binop", "op": op, "left": left, "right": right};
+    }
+    return left;
+}
+
+fn parse_comparison() {
+    var left = parse_add();
+    while at("OP", "<") || at("OP", ">") || at("OP", "<=") || at("OP", ">=") {
+        var op = advance()["value"];
+        var right = parse_add();
+        left = {"type": "binop", "op": op, "left": left, "right": right};
+    }
+    if at("KEYWORD", "in") {
+        advance();
+        var right = parse_add();
+        left = {"type": "binop", "op": "in", "left": left, "right": right};
+    }
+    return left;
+}
+
+fn parse_add() {
+    var left = parse_mul();
+    while at("OP", "+") || at("OP", "-") {
+        var op = advance()["value"];
+        var right = parse_mul();
+        left = {"type": "binop", "op": op, "left": left, "right": right};
+    }
+    // Range: expr..expr or expr..=expr
+    if at("OP", "..") {
+        advance();
+        var inclusive = false;
+        if at("OP", "=") { advance(); inclusive = true; }
+        var right = parse_mul();
+        left = {"type": "range", "start": left, "end": right, "inclusive": inclusive};
+    }
+    return left;
+}
+
+fn parse_mul() {
+    var left = parse_unary();
+    while at("OP", "*") || at("OP", "/") || at("OP", "%") {
+        var op = advance()["value"];
+        var right = parse_unary();
+        left = {"type": "binop", "op": op, "left": left, "right": right};
+    }
+    return left;
+}
+
+fn parse_unary() {
+    if at("OP", "-") {
+        advance();
+        return {"type": "unary", "op": "-", "operand": parse_unary()};
+    }
+    if at("OP", "!") || at("KEYWORD", "not") {
+        advance();
+        return {"type": "unary", "op": "!", "operand": parse_unary()};
+    }
+    return parse_postfix();
+}
+
+fn parse_postfix() {
+    var expr = parse_primary();
+    while true {
+        if at("PUNCT", ".") {
+            advance();
+            var name = expect("IDENT", none)["value"];
+            expr = {"type": "member", "obj": expr, "member": name};
+            continue;
+        }
+        if at("PUNCT", "(") {
+            advance();
+            var args = [];
+            while !at("PUNCT", ")") {
+                args.push(parse_expr());
+                if at("PUNCT", ",") { advance(); }
+            }
+            expect("PUNCT", ")");
+            expr = {"type": "call", "callee": expr, "args": args};
+            continue;
+        }
+        if at("PUNCT", "[") {
+            advance();
+            var idx = parse_expr();
+            expect("PUNCT", "]");
+            expr = {"type": "index", "obj": expr, "index": idx};
+            continue;
+        }
+        if at("KEYWORD", "as") {
+            advance();
+            var target_type = expect("IDENT", none)["value"];
+            expr = {"type": "cast", "expr": expr, "target": target_type};
+            continue;
+        }
+        break;
+    }
+    return expr;
+}
+
+fn parse_primary() {
+    var t = peek();
+    var tp = t["type"];
+    var v = t["value"];
+
+    if tp == "INT" { advance(); return {"type": "int_lit", "value": int(v)}; }
+    if tp == "FLOAT" { advance(); return {"type": "float_lit", "value": float(v)}; }
+    if tp == "STR" { advance(); return {"type": "str_lit", "value": v}; }
+    if tp == "FSTR" { advance(); return {"type": "fstr", "parts": v}; }
+    if tp == "SHELL" { advance(); return {"type": "shell", "parts": v}; }
+
+    if tp == "KEYWORD" {
+        if v == "true" { advance(); return {"type": "bool_lit", "value": true}; }
+        if v == "false" { advance(); return {"type": "bool_lit", "value": false}; }
+        if v == "none" { advance(); return {"type": "none_lit"}; }
+        if v == "some" {
+            advance(); expect("PUNCT", "(");
+            var inner = parse_expr();
+            expect("PUNCT", ")");
+            return {"type": "some", "value": inner};
+        }
+        if v == "ok" {
+            advance(); expect("PUNCT", "(");
+            var inner = parse_expr();
+            expect("PUNCT", ")");
+            return {"type": "ok", "value": inner};
+        }
+        if v == "err" {
+            advance(); expect("PUNCT", "(");
+            var inner = parse_expr();
+            expect("PUNCT", ")");
+            return {"type": "err", "value": inner};
+        }
+        if v == "comptime" {
+            advance();
+            var body = parse_block();
+            return {"type": "comptime", "body": body};
+        }
+    }
+
+    // Closure: |params| expr
+    if tp == "OP" && v == "|" {
+        advance();
+        var params = [];
+        while !at("OP", "|") {
+            params.push(expect("IDENT", none)["value"]);
+            if at("PUNCT", ",") { advance(); }
+        }
+        expect("OP", "|");
+        var body = none;
+        if at("PUNCT", "{") {
+            body = parse_block();
+        } else {
+            var e = parse_expr();
+            body = {"type": "block", "stmts": [{"type": "return", "value": e}]};
+        }
+        return {"type": "closure", "params": params, "body": body};
+    }
+
+    if tp == "IDENT" { advance(); return {"type": "ident", "name": v}; }
+
+    if tp == "PUNCT" && v == "(" {
+        advance();
+        var expr = parse_expr();
+        expect("PUNCT", ")");
+        return expr;
+    }
+
+    if tp == "PUNCT" && v == "[" {
+        advance();
+        var elems = [];
+        while !at("PUNCT", "]") {
+            elems.push(parse_expr());
+            if at("PUNCT", ",") { advance(); }
+        }
+        expect("PUNCT", "]");
+        return {"type": "array_lit", "elements": elems};
+    }
+
+    if tp == "PUNCT" && v == "{" {
+        advance();
+        var entries = [];
+        while !at("PUNCT", "}") {
+            var key = parse_expr();
+            expect("PUNCT", ":");
+            var val = parse_expr();
+            entries.push({"key": key, "value": val});
+            if at("PUNCT", ",") { advance(); }
+        }
+        expect("PUNCT", "}");
+        return {"type": "map_lit", "entries": entries};
+    }
+
+    var tline = t["line"];
+    panic("Parse error line " + str(tline) + ": unexpected " + tp + " '" + v + "'");
+}
+
+// ===========================================================================
+// CODE GENERATOR
+// ===========================================================================
+
+var _indent = 0;
+var _lifted = [];
+var _init_lines = [];
+var _fn_counter = 0;
+var _var_counter = 0;
+var _class_defs = [];
+var _forward_decls = [];
+var _promoted = {};
+var _local_scope = {};
+
+fn fresh_var() {
+    _var_counter = _var_counter + 1;
+    return f"_tmp{_var_counter}";
+}
+
+fn fresh_fn() {
+    _fn_counter = _fn_counter + 1;
+    return f"_wk_fn_{_fn_counter}";
+}
+
+fn mangle(name) {
+    var result = "_v_";
+    for c in name {
+        if is_alnum(c) || c == "_" { result = result + c; }
+        else { result = result + "_"; }
+    }
+    return result;
+}
+
+fn ind() {
+    var s = "";
+    for i in range(0, _indent) { s = s + "    "; }
+    return s;
+}
+
+fn generate(program) {
+    _indent = 0;
+    _lifted = [];
+    _init_lines = [];
+    _fn_counter = 0;
+    _var_counter = 0;
+    _class_defs = [];
+    _forward_decls = [];
+    _promoted = {};
+
+    var stmts = program["stmts"];
+    collect_decls(stmts);
+
+    var body_lines = [];
+    for s in stmts {
+        var lines = gen_stmt(s);
+        for l in lines { body_lines.push(l); }
+    }
+
+    var out = "#include \"waka_runtime.h\"\n\n";
+
+    for d in _forward_decls { out = out + d + "\n"; }
+    if len(_forward_decls) > 0 { out = out + "\n"; }
+
+    for f in _lifted { out = out + f + "\n\n"; }
+
+    for cd in _class_defs { out = out + cd + "\n\n"; }
+
+    out = out + "static void _wk_init_user(void) {\n";
+    for l in _init_lines { out = out + "    " + l + "\n"; }
+    out = out + "}\n\n";
+
+    out = out + "static void _wk_program(void) {\n";
+    for l in body_lines { out = out + l + "\n"; }
+    out = out + "}\n\n";
+
+    out = out + "int main(int argc, char **argv) {\n";
+    out = out + "    wk_argc = argc; wk_argv = argv;\n";
+    out = out + "    wk_runtime_init();\n";
+    out = out + "    _wk_init_user();\n";
+    out = out + "    _wk_program();\n";
+    out = out + "    return 0;\n";
+    out = out + "}\n";
+
+    return out;
+}
+
+fn collect_decls(stmts) {
+    for s in stmts {
+        var stype = s["type"];
+        if stype == "fn" {
+            var cname = fresh_fn();
+            s["__cname"] = cname;
+            _forward_decls.push(f"static WkVal {cname}(WkVal *args, int argc, WkFunc *fn);");
+            var vname = mangle(s["name"]);
+            _forward_decls.push(f"static WkVal {vname};");
+            _promoted[s["name"]] = true;
+        }
+        if stype == "let" || stype == "const" {
+            var vname = mangle(s["name"]);
+            _forward_decls.push(f"static WkVal {vname};");
+            _promoted[s["name"]] = true;
+        }
+        if stype == "class" {
+            var sname = s["name"];
+            var cname = "_wk_cls_" + sname;
+            s["__cname"] = cname;
+            _forward_decls.push(f"static WkClass {cname};");
+            var methods = s["methods"];
+            if methods != none {
+                for m in methods {
+                    var mcname = fresh_fn();
+                    m["__cname"] = mcname;
+                    _forward_decls.push(f"static WkVal {mcname}(WkVal *args, int argc, WkFunc *fn);");
+                }
+            }
+        }
+    }
+}
+
+fn gen_stmt(node) {
+    var lines = [];
+    var ntype = node["type"];
+
+    if ntype == "expr_stmt" {
+        var expr_c = gen_expr(node["expr"]);
+        lines.push(ind() + expr_c + ";");
+        return lines;
+    }
+
+    if ntype == "let" || ntype == "const" {
+        var cvar = mangle(node["name"]);
+        _local_scope[node["name"]] = true;
+        var is_global = _promoted[node["name"]] == true;
+        if node["value"] != none {
+            var val_c = gen_expr(node["value"]);
+            if is_global {
+                lines.push(ind() + cvar + " = " + val_c + ";");
+            } else {
+                lines.push(ind() + "WkVal " + cvar + " = " + val_c + ";");
+            }
+        } else {
+            if is_global {
+                lines.push(f"{ind()}{cvar} = wk_none();");
+            } else {
+                lines.push(f"{ind()}WkVal {cvar} = wk_none();");
+            }
+        }
+        return lines;
+    }
+
+    if ntype == "assign" {
+        var target = node["target"];
+        var val_c = gen_expr(node["value"]);
+        var ttype = target["type"];
+        if ttype == "ident" {
+            var tname = mangle(target["name"]);
+            lines.push(ind() + tname + " = " + val_c + ";");
+        } else if ttype == "member" {
+            var tobj = gen_expr(target["obj"]);
+            var tmember = target["member"];
+            lines.push(ind() + "wk_member_set(" + tobj + ", \"" + tmember + "\", " + val_c + ");");
+        } else if ttype == "index" {
+            var tobj = gen_expr(target["obj"]);
+            var tidx = gen_expr(target["index"]);
+            lines.push(ind() + "wk_index_set(" + tobj + ", " + tidx + ", " + val_c + ");");
+        }
+        return lines;
+    }
+
+    if ntype == "if" {
+        var cond_c = gen_expr(node["cond"]);
+        lines.push(ind() + "if (wk_truthy(" + cond_c + ")) {");
+        _indent = _indent + 1;
+        for l in gen_block(node["then"]) { lines.push(l); }
+        _indent = _indent - 1;
+        var elseifs = node["elseifs"];
+        if elseifs != none {
+            for eif in elseifs {
+                var eif_cond_c = gen_expr(eif["cond"]);
+                lines.push(ind() + "} else if (wk_truthy(" + eif_cond_c + ")) {");
+                _indent = _indent + 1;
+                for l in gen_block(eif["body"]) { lines.push(l); }
+                _indent = _indent - 1;
+            }
+        }
+        if node["else"] != none {
+            lines.push(f"{ind()}}} else {{");
+            _indent = _indent + 1;
+            for l in gen_block(node["else"]) { lines.push(l); }
+            _indent = _indent - 1;
+        }
+        lines.push(f"{ind()}}}");
+        return lines;
+    }
+
+    if ntype == "while" {
+        lines.push(f"{ind()}for (;;) {{");
+        _indent = _indent + 1;
+        var cond_c = gen_expr(node["cond"]);
+        lines.push(ind() + "if (!wk_truthy(" + cond_c + ")) break;");
+        for l in gen_block(node["body"]) { lines.push(l); }
+        _indent = _indent - 1;
+        lines.push(f"{ind()}}}");
+        return lines;
+    }
+
+    if ntype == "for_in" {
+        var iter_c = gen_expr(node["iter"]);
+        var iv = fresh_var();
+        var idx = fresh_var();
+        var cvar = mangle(node["var"]);
+        _local_scope[node["var"]] = true;
+        lines.push(f"{ind()}{{ WkVal {iv} = {iter_c};");
+        lines.push(f"{ind()}  for (int {idx} = 0; {idx} < (int)({iv}.tag == WK_LIST ? {iv}.as.list->len : ({iv}.tag == WK_STR ? {iv}.as.str->len : ({iv}.tag == WK_RANGE ? ({iv}.as.rng.end - {iv}.as.rng.start + {iv}.as.rng.inclusive) : 0))); {idx}++) {{");
+        lines.push(f"{ind()}    WkVal {cvar};");
+        lines.push(f"{ind()}    if ({iv}.tag == WK_LIST) {cvar} = {iv}.as.list->items[{idx}];");
+        lines.push(f"{ind()}    else if ({iv}.tag == WK_STR) {{ char _c[2] = {{{iv}.as.str->data[{idx}], 0}}; {cvar} = wk_make_str(_c, 1); }}");
+        lines.push(f"{ind()}    else if ({iv}.tag == WK_RANGE) {cvar} = wk_int({iv}.as.rng.start + {idx});");
+        lines.push(f"{ind()}    else {cvar} = wk_none();");
+        _indent = _indent + 2;
+        for l in gen_block(node["body"]) { lines.push(l); }
+        _indent = _indent - 2;
+        lines.push(f"{ind()}  }}");
+        lines.push(f"{ind()}}}");
+        return lines;
+    }
+
+    if ntype == "return" {
+        if node["value"] != none {
+            var ret_c = gen_expr(node["value"]);
+            lines.push(ind() + "return " + ret_c + ";");
+        } else {
+            lines.push(f"{ind()}return wk_none();");
+        }
+        return lines;
+    }
+
+    if ntype == "break" { lines.push(f"{ind()}break;"); return lines; }
+    if ntype == "continue" { lines.push(f"{ind()}continue;"); return lines; }
+
+    if ntype == "fn" {
+        var cname = node["__cname"];
+        if cname == none {
+            cname = fresh_fn();
+            node["__cname"] = cname;
+            _forward_decls.push(f"static WkVal {cname}(WkVal *args, int argc, WkFunc *fn);");
+        }
+        gen_fn_body(node);
+        var vname = mangle(node["name"]);
+        _local_scope[node["name"]] = true;
+        var nparams = len(node["params"]);
+        var fname = node["name"];
+        var is_global = _promoted[node["name"]] == true;
+        if is_global {
+            lines.push(ind() + vname + " = wk_make_func(\"" + fname + "\", " + cname + ", NULL, 0, NULL, " + str(nparams) + ");");
+        } else {
+            lines.push(ind() + "WkVal " + vname + " = wk_make_func(\"" + fname + "\", " + cname + ", NULL, 0, NULL, " + str(nparams) + ");");
+        }
+        return lines;
+    }
+
+    if ntype == "class" {
+        gen_class(node);
+        return lines;
+    }
+
+    if ntype == "match" {
+        var mv = fresh_var();
+        var mexpr_c = gen_expr(node["expr"]);
+        lines.push(ind() + "{ WkVal " + mv + " = " + mexpr_c + ";");
+        var first = true;
+        for arm in node["arms"] {
+            var kw = "if";
+            if !first { kw = "} else if"; }
+            var pat = arm["pattern"];
+            var ptype = pat["type"];
+            var cond = "";
+            var binding_name = none;
+            var binding_expr = "";
+
+            // Pattern: ok(v), err(e), some(v)
+            if ptype == "ok" {
+                cond = f"{mv}.tag == WK_OK";
+                if pat["value"]["type"] == "ident" {
+                    binding_name = pat["value"]["name"];
+                    binding_expr = f"*{mv}.as.inner";
+                }
+            }
+            if ptype == "err" {
+                cond = f"{mv}.tag == WK_ERR";
+                if pat["value"]["type"] == "ident" {
+                    binding_name = pat["value"]["name"];
+                    binding_expr = f"*{mv}.as.inner";
+                }
+            }
+            if ptype == "some" {
+                cond = f"{mv}.tag == WK_SOME";
+                if pat["value"]["type"] == "ident" {
+                    binding_name = pat["value"]["name"];
+                    binding_expr = f"*{mv}.as.inner";
+                }
+            }
+            if ptype == "none_lit" {
+                cond = f"{mv}.tag == WK_NONE";
+            }
+            // Default: compare by value
+            if cond == "" {
+                var pat_c = gen_expr(pat);
+                cond = f"wk_equal({mv}, {pat_c})";
+            }
+
+            lines.push(f"{ind()}{kw} ({cond}) {{");
+            _indent = _indent + 1;
+            if binding_name != none {
+                var bname = mangle(binding_name);
+                lines.push(f"{ind()}WkVal {bname} = {binding_expr};");
+            }
+            for l in gen_block(arm["body"]) { lines.push(l); }
+            _indent = _indent - 1;
+            first = false;
+        }
+        if !first { lines.push(f"{ind()}}}"); }
+        lines.push(f"{ind()}}}");
+        return lines;
+    }
+
+    if ntype == "import" {
+        // Imports are handled at the Python transpiler level
+        // In bootstrap mode, skip
+        return lines;
+    }
+
+    lines.push(f"{ind()}/* TODO: {ntype} */");
+    return lines;
+}
+
+fn gen_block(block) {
+    var lines = [];
+    if block == none { return lines; }
+    var stmts = block["stmts"];
+    if stmts == none { return lines; }
+    for s in stmts {
+        for l in gen_stmt(s) { lines.push(l); }
+    }
+    return lines;
+}
+
+fn gen_fn_body(node) {
+    var cname = node["__cname"];
+    var params = node["params"];
+
+    var fc = f"static WkVal {cname}(WkVal *args, int argc, WkFunc *fn) {{\n";
+    fc = fc + "    (void)fn; (void)argc;\n";
+
+    // Save and set up local scope for parameters
+    var saved_scope = _local_scope;
+    _local_scope = {};
+    for i in range(0, len(params)) {
+        var param_name = params[i]["name"];
+        var pname = mangle(param_name);
+        fc = fc + f"    WkVal {pname} = (argc > {i}) ? args[{i}] : wk_none();\n";
+        _local_scope[param_name] = true;
+    }
+
+    var old_indent = _indent;
+    _indent = 1;
+    var body_lines = gen_block(node["body"]);
+    _indent = old_indent;
+    _local_scope = saved_scope;
+
+    for l in body_lines { fc = fc + l + "\n"; }
+    fc = fc + "    return wk_none();\n";
+    fc = fc + "}";
+
+    _lifted.push(fc);
+}
+
+fn gen_class(node) {
+    var name = node["name"];
+    var cname = node["__cname"];
+    if cname == none { cname = "_wk_cls_" + name; }
+    var fields = node["fields"];
+    var methods = node["methods"];
+
+    if methods != none {
+        for m in methods { gen_fn_body(m); }
+    }
+
+    var fnames_var = "_fnames_" + name;
+    var fd = "static const char *" + fnames_var + "[] = {";
+    if fields != none {
+        for f in fields {
+            var fname = f["name"];
+            fd = fd + "\"" + fname + "\", ";
+        }
+    }
+    fd = fd + "NULL};";
+    _class_defs.push(fd);
+
+    var nmethods = 0;
+    if methods != none { nmethods = len(methods); }
+    var meth_var = "_methods_" + name;
+    if nmethods > 0 {
+        var md = "static WkMethod " + meth_var + "[] = {";
+        for m in methods {
+            var mname = m["name"];
+            md = md + "{\"" + mname + "\", NULL}, ";
+        }
+        md = md + "};";
+        _class_defs.push(md);
+    }
+
+    var nfields = 0;
+    if fields != none { nfields = len(fields); }
+    _init_lines.push(cname + ".name = \"" + name + "\";");
+    _init_lines.push(f"{cname}.parent = NULL;");
+    if nmethods > 0 {
+        _init_lines.push(f"{cname}.methods = {meth_var};");
+        _init_lines.push(f"{cname}.nmethods = {nmethods};");
+        if methods != none {
+            for i in range(0, len(methods)) {
+                var m = methods[i];
+                var nparams = len(m["params"]);
+                var mname = m["name"];
+                var mcname = m["__cname"];
+                _init_lines.push(meth_var + "[" + str(i) + "].fn = (WkFunc*)wk_make_func(\"" + mname + "\", " + mcname + ", NULL, 0, NULL, " + str(nparams) + ").as.func;");
+            }
+        }
+    } else {
+        _init_lines.push(f"{cname}.methods = NULL;");
+        _init_lines.push(f"{cname}.nmethods = 0;");
+    }
+    _init_lines.push(f"{cname}.field_names = {fnames_var};");
+    _init_lines.push(f"{cname}.nfields = {nfields};");
+}
+
+fn gen_expr(node) {
+    if node == none { return "wk_none()"; }
+    var ntype = node["type"];
+
+    if ntype == "int_lit" {
+        var nval = node["value"];
+        return f"wk_int({nval})";
+    }
+    if ntype == "float_lit" {
+        var nval = node["value"];
+        return f"wk_float({nval})";
+    }
+    if ntype == "bool_lit" {
+        if node["value"] == true { return "wk_bool(1)"; }
+        return "wk_bool(0)";
+    }
+    if ntype == "none_lit" { return "wk_none()"; }
+
+    if ntype == "str_lit" {
+        var escaped = c_escape(node["value"]);
+        return "wk_make_strz(\"" + escaped + "\")";
+    }
+
+    if ntype == "fstr" {
+        var parts = node["parts"];
+        if len(parts) == 0 { return "wk_make_strz(\"\")"; }
+        var result = "wk_make_strz(\"\")";
+        for p in parts {
+            if p["kind"] == "lit" {
+                var escaped = c_escape(p["val"]);
+                result = "wk_str_concat(" + result + ", wk_make_strz(\"" + escaped + "\"))";
+            } else {
+                var expr_c = gen_fstr_expr(p["val"]);
+                result = f"wk_str_concat({result}, wk_cast_str({expr_c}))";
+            }
+        }
+        return result;
+    }
+
+    if ntype == "ident" {
+        var vname = node["name"];
+        // Local scope takes precedence over builtins
+        if _local_scope[vname] != true {
+            var b = builtin_name(vname);
+            if b != none { return b; }
+        }
+        return mangle(vname);
+    }
+
+    if ntype == "binop" {
+        var op = node["op"];
+        var lc = gen_expr(node["left"]);
+        var rc = gen_expr(node["right"]);
+        if op == "+"  { return f"wk_add({lc}, {rc})"; }
+        if op == "-"  { return f"wk_sub({lc}, {rc})"; }
+        if op == "*"  { return f"wk_mul({lc}, {rc})"; }
+        if op == "/"  { return f"wk_div({lc}, {rc})"; }
+        if op == "%"  { return f"wk_mod({lc}, {rc})"; }
+        if op == "**" { return f"wk_pow({lc}, {rc})"; }
+        if op == "==" { return f"wk_cmp_eq({lc}, {rc})"; }
+        if op == "!=" { return f"wk_cmp_ne({lc}, {rc})"; }
+        if op == "<"  { return f"wk_cmp_lt({lc}, {rc})"; }
+        if op == ">"  { return f"wk_cmp_gt({lc}, {rc})"; }
+        if op == "<=" { return f"wk_cmp_le({lc}, {rc})"; }
+        if op == ">=" { return f"wk_cmp_ge({lc}, {rc})"; }
+        if op == "&&" { return f"wk_bool(wk_truthy({lc}) && wk_truthy({rc}))"; }
+        if op == "||" { return f"wk_bool(wk_truthy({lc}) || wk_truthy({rc}))"; }
+        if op == "&"  { return f"wk_band({lc}, {rc})"; }
+        if op == "|"  { return f"wk_bor({lc}, {rc})"; }
+        if op == "^"  { return f"wk_bxor({lc}, {rc})"; }
+        if op == "in" { return f"wk_in({lc}, {rc})"; }
+        return "wk_none()";
+    }
+
+    if ntype == "unary" {
+        var oc = gen_expr(node["operand"]);
+        if node["op"] == "-" { return f"wk_neg({oc})"; }
+        if node["op"] == "!" { return f"wk_not({oc})"; }
+        if node["op"] == "~" { return f"wk_bitnot({oc})"; }
+        return oc;
+    }
+
+    if ntype == "call" {
+        var cc = gen_expr(node["callee"]);
+        var args = node["args"];
+        var na = len(args);
+        if na == 0 { return f"wk_call0({cc})"; }
+        if na == 1 { return f"wk_call1({cc}, {gen_expr(args[0])})"; }
+        if na == 2 { return f"wk_call2({cc}, {gen_expr(args[0])}, {gen_expr(args[1])})"; }
+        var parts = [];
+        for a in args { parts.push(gen_expr(a)); }
+        var arg_list = parts.join(", ");
+        return f"wk_call((WkVal){cc}, (WkVal[]){{{arg_list}}}, {na})";
+    }
+
+    if ntype == "member" {
+        var obj_c = gen_expr(node["obj"]);
+        var mem = node["member"];
+        return "wk_member_get(" + obj_c + ", \"" + mem + "\")";
+    }
+
+    if ntype == "index" {
+        var obj_c = gen_expr(node["obj"]);
+        var idx_c = gen_expr(node["index"]);
+        return "wk_index_get(" + obj_c + ", " + idx_c + ")";
+    }
+
+    if ntype == "cast" {
+        var ec = gen_expr(node["expr"]);
+        var target = node["target"];
+        if target == "int" { return f"wk_cast_int({ec})"; }
+        if target == "float" { return f"wk_cast_float({ec})"; }
+        if target == "str" { return f"wk_cast_str({ec})"; }
+        if target == "bool" { return f"wk_bool(wk_truthy({ec}))"; }
+        return ec;
+    }
+
+    if ntype == "range" {
+        var start_c = gen_expr(node["start"]);
+        var end_c = gen_expr(node["end"]);
+        var inc = "0";
+        if node["inclusive"] == true { inc = "1"; }
+        var s_cast = f"({start_c}.tag==WK_INT?{start_c}.as.i:(int64_t){start_c}.as.f)";
+        var e_cast = f"({end_c}.tag==WK_INT?{end_c}.as.i:(int64_t){end_c}.as.f)";
+        return f"wk_range({s_cast}, {e_cast}, {inc})";
+    }
+
+    if ntype == "array_lit" {
+        var elems = node["elements"];
+        if len(elems) == 0 { return "wk_make_list()"; }
+        var tv = fresh_var();
+        var p = f"({{ WkVal {tv} = wk_make_list(); ";
+        for e in elems { p = p + f"wk_list_push_raw({tv}.as.list, {gen_expr(e)}); "; }
+        p = p + f"{tv}; }})";
+        return p;
+    }
+
+    if ntype == "map_lit" {
+        var entries = node["entries"];
+        if len(entries) == 0 { return "wk_make_map()"; }
+        var tv = fresh_var();
+        var p = f"({{ WkVal {tv} = wk_make_map(); ";
+        for e in entries {
+            var key_c = gen_expr(e["key"]);
+            var val_c = gen_expr(e["value"]);
+            p = p + "wk_map_set_key(" + tv + ", " + key_c + ", " + val_c + "); ";
+        }
+        p = p + f"{tv}; }})";
+        return p;
+    }
+
+    if ntype == "closure" {
+        var cname = fresh_fn();
+        var params = node["params"];
+        _forward_decls.push(f"static WkVal {cname}(WkVal *args, int argc, WkFunc *fn);");
+        var param_list = [];
+        for p in params { param_list.push({"name": p, "type_ann": none, "default": none}); }
+        var fn_node = {"type": "fn", "name": "closure", "params": param_list,
+                        "body": node["body"], "__cname": cname};
+        gen_fn_body(fn_node);
+        return f"wk_make_func(\"closure\", {cname}, NULL, 0, NULL, {len(params)})";
+    }
+
+    if ntype == "some" {
+        var val_c = gen_expr(node["value"]);
+        return f"wk_make_some({val_c})";
+    }
+    if ntype == "ok" {
+        var val_c = gen_expr(node["value"]);
+        return f"wk_make_ok({val_c})";
+    }
+    if ntype == "err" {
+        var val_c = gen_expr(node["value"]);
+        return f"wk_make_err({val_c})";
+    }
+
+    if ntype == "shell" {
+        var parts = node["parts"];
+        // Build command string from parts using wk_str_fmtbuild
+        var nparts = len(parts);
+        var args = "";
+        var count = 0;
+        for p in parts {
+            if count > 0 { args = args + ", "; }
+            if p["kind"] == "lit" {
+                var escaped = c_escape(p["val"]);
+                args = args + "\"" + escaped + "\", wk_none()";
+            } else {
+                var expr_c = gen_fstr_expr(p["val"]);
+                args = args + "NULL, wk_cast_str(" + expr_c + ")";
+            }
+            count = count + 1;
+        }
+        if count == 0 {
+            return "wk_shell_exec(wk_make_strz(\"\"))";
+        }
+        return "wk_shell_exec(wk_str_fmtbuild(" + str(count) + ", " + args + "))";
+    }
+
+    if ntype == "pipe" {
+        var left_c = gen_expr(node["left"]);
+        var right = node["right"];
+        // If right is a call, prepend left as first arg
+        if right["type"] == "call" {
+            var fn_c = gen_expr(right["callee"]);
+            var all_args = [left_c];
+            for a in right["args"] { all_args.push(gen_expr(a)); }
+            var na = len(all_args);
+            var arg_list = all_args.join(", ");
+            return f"wk_call({fn_c}, (WkVal[]){{{arg_list}}}, {na})";
+        }
+        // Otherwise right is a plain function name
+        var right_c = gen_expr(right);
+        return f"wk_call1({right_c}, {left_c})";
+    }
+
+    return "wk_none()";
+}
+
+fn gen_fstr_expr(expr_text) {
+    var inner_tokens = tokenize(expr_text);
+    var saved_tokens = _tokens;
+    var saved_pos = _pos;
+    _tokens = inner_tokens;
+    _pos = 0;
+    var expr_node = parse_expr();
+    _tokens = saved_tokens;
+    _pos = saved_pos;
+    return gen_expr(expr_node);
+}
+
+fn builtin_name(name) {
+    if name == "println"   { return "wk_g_println"; }
+    if name == "print"     { return "wk_g_print"; }
+    if name == "eprintln"  { return "wk_g_eprintln"; }
+    if name == "readln"    { return "wk_g_readln"; }
+    if name == "len"       { return "wk_g_len"; }
+    if name == "str"       { return "wk_g_str"; }
+    if name == "int"       { return "wk_g_int"; }
+    if name == "float"     { return "wk_g_float"; }
+    if name == "bool"      { return "wk_g_bool"; }
+    if name == "typeof"    { return "wk_g_typeof"; }
+    if name == "isNone"    { return "wk_g_isNone"; }
+    if name == "isSome"    { return "wk_g_isSome"; }
+    if name == "isOk"      { return "wk_g_isOk"; }
+    if name == "isErr"     { return "wk_g_isErr"; }
+    if name == "sum"       { return "wk_g_sum"; }
+    if name == "min"       { return "wk_g_min"; }
+    if name == "max"       { return "wk_g_max"; }
+    if name == "map"       { return "wk_g_map"; }
+    if name == "filter"    { return "wk_g_filter"; }
+    if name == "reduce"    { return "wk_g_reduce"; }
+    if name == "sorted"    { return "wk_g_sorted"; }
+    if name == "reversed"  { return "wk_g_reversed"; }
+    if name == "any"       { return "wk_g_any"; }
+    if name == "all"       { return "wk_g_all"; }
+    if name == "zip"       { return "wk_g_zip"; }
+    if name == "enumerate" { return "wk_g_enumerate"; }
+    if name == "range"     { return "wk_g_range"; }
+    if name == "sleep"     { return "wk_g_sleep"; }
+    if name == "exit"      { return "wk_g_exit"; }
+    if name == "assert"    { return "wk_g_assert"; }
+    if name == "copy"      { return "wk_g_copy"; }
+    if name == "chr"       { return "wk_g_chr"; }
+    if name == "ord"       { return "wk_g_ord"; }
+    if name == "hash"      { return "wk_g_hash"; }
+    if name == "repr"      { return "wk_g_repr"; }
+    if name == "panic"     { return "wk_g_panic"; }
+    if name == "math"      { return "wk_g_math"; }
+    if name == "tensor"    { return "wk_g_tensor"; }
+    if name == "ad"        { return "wk_g_ad"; }
+    if name == "gpu"       { return "wk_g_gpu"; }
+    if name == "pipeline"  { return "wk_g_pipeline"; }
+    if name == "model"     { return "wk_g_model"; }
+    if name == "fs"        { return "wk_g_fs"; }
+    if name == "py"        { return "wk_g_py"; }
+    if name == "jvm"       { return "wk_g_jvm"; }
+    if name == "node"      { return "wk_g_node"; }
+    return none;
+}
+
+fn c_escape(s) {
+    var result = "";
+    for c in s {
+        if c == "\\" { result = result + "\\\\"; }
+        else if c == "\"" { result = result + "\\\""; }
+        else if c == "\n" { result = result + "\\n"; }
+        else if c == "\t" { result = result + "\\t"; }
+        else if c == "\r" { result = result + "\\r"; }
+        else { result = result + c; }
+    }
+    return result;
+}
+
+// ===========================================================================
+// MAIN DRIVER
+// ===========================================================================
+
+fn find_runtime() {
+    var paths = [
+        "runtime/waka_runtime.c",
+        "../runtime/waka_runtime.c",
+        "../../runtime/waka_runtime.c",
+    ];
+    for p in paths {
+        if fs.exists(p) { return p; }
+    }
+    return "runtime/waka_runtime.c";
+}
+
+fn get_runtime_dir(runtime_src) {
+    // Extract directory from path
+    var last_slash = -1;
+    for i in range(0, len(runtime_src)) {
+        if runtime_src[i] == "/" { last_slash = i; }
+    }
+    if last_slash >= 0 {
+        return runtime_src.slice(0, last_slash);
+    }
+    return ".";
+}
+
+fn cmd_build(filepath, output) {
+    if !fs.exists(filepath) {
+        println(f"error: file not found: {filepath}");
+        exit(1);
+    }
+
+    var out = output;
+    if out == none {
+        if filepath.endsWith(".wk") {
+            out = filepath.slice(0, len(filepath) - 3);
+        } else {
+            out = filepath;
+        }
+    }
+
+    println(f"Building {filepath} -> {out}");
+
+    var source = fs.read(filepath);
+    var tokens = tokenize(source);
+    var ast = wk_parse(tokens);
+    var c_code = generate(ast);
+
+    var c_file = out + ".c";
+    fs.write(c_file, c_code);
+    println(f"Generated C: {c_file}");
+
+    var runtime_src = find_runtime();
+    var runtime_dir = get_runtime_dir(runtime_src);
+
+    var compile_cmd = f"gcc {c_file} {runtime_src} -o {out} -I{runtime_dir} -lm -lpthread -ldl -std=c99 -O2 2>&1";
+    var result = $`{compile_cmd}`;
+    if len(result) > 0 {
+        println(f"Compile output:\n{result}");
+    }
+
+    if fs.exists(out) {
+        println(f"Build successful: {out}");
+    } else {
+        println("Build failed.");
+        exit(1);
+    }
+}
+
+fn cmd_run(filepath) {
+    if !fs.exists(filepath) {
+        println(f"error: file not found: {filepath}");
+        exit(1);
+    }
+    var tmp_out = "/tmp/wk_run_tmp";
+    cmd_build(filepath, tmp_out);
+    var result = $`{tmp_out}`;
+    println(result);
+}
+
+fn wk_main() {
+    var args = fs.args();
+    var nargs = len(args);
+
+    if nargs < 2 {
+        println(f"Wakawaka v{VERSION} — Bootstrap Compiler");
+        println("Usage:");
+        println("  waka build <file.wk> [-o output]");
+        println("  waka run   <file.wk>");
+        println("  waka version");
+        return;
+    }
+
+    var cmd = args[1];
+
+    if cmd == "version" {
+        println(f"Wakawaka {VERSION} (bootstrap native)");
+        return;
+    }
+
+    if cmd == "build" {
+        if nargs < 3 {
+            println("Usage: waka build <file.wk> [-o output]");
+            exit(1);
+        }
+        var filepath = args[2];
+        var output = none;
+        if nargs >= 5 && args[3] == "-o" {
+            output = args[4];
+        }
+        cmd_build(filepath, output);
+        return;
+    }
+
+    if cmd == "run" {
+        if nargs < 3 {
+            println("Usage: waka run <file.wk>");
+            exit(1);
+        }
+        cmd_run(args[2]);
+        return;
+    }
+
+    println(f"Unknown command: {cmd}");
+    exit(1);
+}
+
+wk_main();

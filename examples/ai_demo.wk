@@ -1,0 +1,168 @@
+// AI Features Demo for Wakawaka
+// Exercises all 10 AI improvement features
+// Run: waka run examples/ai_demo.wk
+
+fn main() {
+    println("=== Wakawaka AI Features Demo ===\n");
+
+    // ── Feature 1: Native Tensors ──────────────────────────────────────
+    println("--- Feature 1: Native Tensors ---");
+    let a = tensor.zeros([3]);
+    let b = tensor.ones([3]);
+    let c = tensor.from([1.0, 2.0, 3.0]);
+    println(f"zeros: {a}");
+    println(f"ones:  {b}");
+    println(f"from:  {c}");
+
+    // Arithmetic
+    let d = c + b;
+    println(f"c + ones = {d}");
+    let e = c * 2.0;
+    println(f"c * 2 = {e}");
+
+    // Reductions
+    println(f"sum(c) = {c.sum()}");
+    println(f"mean(c) = {c.mean()}");
+    println(f"max(c) = {c.max()}");
+    println(f"min(c) = {c.min()}");
+
+    // Shape ops
+    let mat = tensor.from([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]).reshape([2, 3]);
+    println(f"matrix 2x3: {mat}");
+
+    // More creation
+    let r = tensor.arange(0.0, 5.0, 1.0);
+    println(f"arange: {r}");
+    let lin = tensor.linspace(0.0, 1.0, 5);
+    println(f"linspace: {lin}");
+    let eye = tensor.eye(3);
+    println(f"eye(3): {eye}");
+    println("");
+
+    // ── Feature 2: Automatic Differentiation ───────────────────────────
+    println("--- Feature 2: Autodiff (Forward-Mode Dual Numbers) ---");
+    let d1 = ad.dual(3.0, 1.0);
+    println(f"dual(3, 1) value: {ad.value(d1)}, deriv: {ad.deriv(d1)}");
+
+    // Gradient of f(x) = x^2 at x=3 should be 6
+    let grad_x2 = ad.grad(|x| x * x, 3.0);
+    println(f"grad(x^2) at x=3: {grad_x2}");
+
+    // Gradient of f(x) = sin(x) at x=0 should be cos(0)=1
+    let grad_sin = ad.grad(|x| ad.sin(x), 0.0);
+    println(f"grad(sin) at x=0: {grad_sin}");
+
+    // Chain rule: f(x) = exp(x^2)
+    let grad_exp_x2 = ad.grad(|x| ad.exp(x * x), 1.0);
+    println(f"grad(exp(x^2)) at x=1: {grad_exp_x2}");
+    println("");
+
+    // ── Feature 3: GPU Dispatch ────────────────────────────────────────
+    println("--- Feature 3: GPU Dispatch ---");
+    let has_gpu = gpu.available();
+    println(f"GPU available: {has_gpu}");
+    if has_gpu {
+        let devs = gpu.devices();
+        println(f"GPU devices: {devs}");
+    } else {
+        println("(No GPU/OpenCL — skipping GPU demo)");
+    }
+    println("");
+
+    // ── Feature 4: Data Pipeline ───────────────────────────────────────
+    println("--- Feature 4: Data Pipeline ---");
+    let data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    let result = pipeline.from(data)
+        .filter(|x| x % 2 == 0)
+        .map(|x| x * x)
+        .collect();
+    println(f"even squares: {result}");
+
+    let batched = pipeline.from(data)
+        .batch(3)
+        .collect();
+    println(f"batches of 3: {batched}");
+
+    let top3 = pipeline.from(data)
+        .skip(2)
+        .take(3)
+        .collect();
+    println(f"skip 2, take 3: {top3}");
+
+    let total = pipeline.from(data)
+        .filter(|x| x > 5)
+        .count();
+    println(f"count > 5: {total}");
+    println("");
+
+    // ── Feature 5: Model Serialization ─────────────────────────────────
+    println("--- Feature 5: Model Serialization (WKTM) ---");
+    let weights = {
+        "layer1": tensor.from([0.1, 0.2, 0.3]),
+        "layer2": tensor.from([0.4, 0.5, 0.6]),
+    };
+    model.save(weights, "/tmp/test_model.wktm");
+    println("Saved model to /tmp/test_model.wktm");
+
+    let loaded = model.load("/tmp/test_model.wktm");
+    println(f"Loaded: {loaded}");
+    let l1 = loaded.get("layer1");
+    println(f"layer1: {l1}");
+    println("");
+
+    // ── Feature 6: Comptime ────────────────────────────────────────────
+    println("--- Feature 6: Compile-Time Evaluation ---");
+    const TWO_PI = comptime { 2 * 3.14159265358979 };
+    println(f"TWO_PI (comptime): {TWO_PI}");
+    const BIG = comptime { 100 * 100 + 42 };
+    println(f"BIG (comptime): {BIG}");
+    println("");
+
+    // ── Feature 7: Type Checking ───────────────────────────────────────
+    println("--- Feature 7: Gradual Type Checking ---");
+    println("(Run 'waka check examples/ai_demo.wk' to see type analysis)");
+    let x: int = 42;
+    let y: float = 3.14;
+    let msg: str = "hello";
+    println(f"Typed: x={x}, y={y}, msg={msg}");
+    println("");
+
+    // ── Feature 8: ONNX/GGUF Loading ──────────────────────────────────
+    println("--- Feature 8: ONNX/GGUF Format Support ---");
+    println("(Requires .onnx or .gguf files — skipping load demo)");
+    println("model.loadONNX('model.onnx') and model.loadGGUF('model.gguf') are available");
+    println("");
+
+    // ── Feature 9: AI Provenance Metadata ──────────────────────────────
+    println("--- Feature 9: AI Provenance Metadata ---");
+    model.setMeta(weights, "author", "WakaDemo");
+    model.setMeta(weights, "version", "1.0");
+    model.setMeta(weights, "framework", "wakawaka");
+    let author = model.meta(weights, "author");
+    println(f"Model author: {author}");
+    model.save(weights, "/tmp/test_model_meta.wktm");
+    println("Saved model with provenance metadata");
+    println("");
+
+    // ── Feature 10: Macros ─────────────────────────────────────────────
+    println("--- Feature 10: Macro Expansion ---");
+    println("(See macro definitions and calls below)");
+}
+
+// Define macros before main
+macro square(x) {
+    x * x
+}
+
+macro cube(x) {
+    x * x * x
+}
+
+main();
+
+// Use macros
+println(f"square(5) = {square(5)}");
+println(f"cube(3) = {cube(3)}");
+println(f"square(2) + cube(2) = {square(2) + cube(2)}");
+
+println("\n=== All AI features demonstrated! ===");

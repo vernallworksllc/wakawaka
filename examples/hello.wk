@@ -1,0 +1,78 @@
+// Hello World in Wakawaka
+// Run: waka run examples/hello.wk
+
+fn main() {
+    println("Hello, World!");
+
+    // Variables
+    let name = "Wakawaka";           // immutable, type inferred as str
+    var count = 0;                 // mutable int
+    const VERSION = "1.0.0";      // compile-time constant
+
+    println(f"Welcome to {name} v{VERSION}");
+
+    // Basic types
+    let x: int   = 42;
+    let y: float = 3.14;
+    let flag: bool = true;
+
+    // String interpolation
+    println(f"x={x}, y={y:.2f}, flag={flag}");
+
+    // Arithmetic
+    let result = x * 2 + (y as int);
+    println(f"result = {result}");
+
+    // Array
+    var nums = [1, 2, 3, 4, 5];
+    nums.push(6);
+    println(f"nums = {nums}");
+    println(f"sum  = {sum(nums)}");
+    println(f"doubled = {nums.map(|n| n * 2)}");
+
+    // Map
+    let scores = {"Alice": 95, "Bob": 87, "Carol": 92};
+    for name in scores.keys() {
+        println(f"  {name}: {scores.get(name)}");
+    }
+
+    // If / else
+    if x > 40 {
+        println("x is large");
+    } else if x > 20 {
+        println("x is medium");
+    } else {
+        println("x is small");
+    }
+
+    // While loop
+    count = 0;
+    while count < 3 {
+        println(f"  count = {count}");
+        count += 1;
+    }
+
+    // For-in loop
+    for n in 1..=5 {
+        print(f"{n} ");
+    }
+    println("");
+
+    // Pattern matching
+    let val = ok(42);
+    match val {
+        ok(v)  => println(f"Got value: {v}"),
+        err(e) => println(f"Error: {e}"),
+    }
+
+    // Closures & pipe operator
+    let result2 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        |> filter(|n| n % 2 == 0)
+        |> map(|n| n * n)
+        |> sum;
+    println(f"Sum of squares of even nums 1-10: {result2}");
+
+    println("\nWakawaka is running!");
+}
+
+main();

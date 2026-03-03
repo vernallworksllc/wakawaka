@@ -1,0 +1,274 @@
+// Wakawaka OOP Demo
+// Classes, inheritance, polymorphism, interfaces, operator overloading
+// Run: python deltoo.py run examples/oop_demo.dt
+
+// ── Interface ─────────────────────────────────────────────────────────────────
+
+interface Drawable {
+    fn draw(self);
+    fn area(self) -> float;
+}
+
+interface Comparable {
+    fn compareTo(self, other: any) -> int;
+}
+
+// ── Base class ────────────────────────────────────────────────────────────────
+
+abstract class Shape {
+    var color: str;
+    var filled: bool;
+
+    fn new(color: str) -> Shape {
+        return Shape { color: color, filled: false };
+    }
+
+    abstract fn area(self) -> float;
+    abstract fn perimeter(self) -> float;
+
+    fn describe(self) -> str {
+        let status = self.filled ? "filled" : "outline";
+        return f"[{self.color} {status}] area={self.area():.2f}, perimeter={self.perimeter():.2f}";
+    }
+
+    fn fill(var self) {
+        self.filled = true;
+    }
+}
+
+// ── Concrete classes ──────────────────────────────────────────────────────────
+
+class Circle extends Shape {
+    var radius: float;
+
+    fn new(radius: float, color: str) -> Circle {
+        return Circle { radius: radius, color: color, filled: false };
+    }
+
+    override fn area(self) -> float {
+        return math.PI * self.radius * self.radius;
+    }
+
+    override fn perimeter(self) -> float {
+        return 2.0 * math.PI * self.radius;
+    }
+
+    fn draw(self) {
+        println(f"Drawing circle r={self.radius} [{self.color}]");
+    }
+
+    // Operator overloading
+    fn operator==(self, other: Circle) -> bool {
+        return self.radius == other.radius;
+    }
+
+    fn operator+(self, other: Circle) -> Circle {
+        return Circle.new(self.radius + other.radius, self.color);
+    }
+}
+
+class Rectangle extends Shape {
+    var width: float;
+    var height: float;
+
+    fn new(width: float, height: float, color: str) -> Rectangle {
+        return Rectangle { width: width, height: height, color: color, filled: false };
+    }
+
+    override fn area(self) -> float {
+        return self.width * self.height;
+    }
+
+    override fn perimeter(self) -> float {
+        return 2.0 * (self.width + self.height);
+    }
+
+    fn draw(self) {
+        println(f"Drawing rect {self.width}x{self.height} [{self.color}]");
+    }
+
+    fn isSquare(self) -> bool {
+        return self.width == self.height;
+    }
+}
+
+class Triangle extends Shape {
+    var a: float;
+    var b: float;
+    var c: float;
+
+    fn new(a: float, b: float, c: float, color: str) -> Triangle {
+        return Triangle { a: a, b: b, c: c, color: color, filled: false };
+    }
+
+    override fn area(self) -> float {
+        // Heron's formula
+        let s = (self.a + self.b + self.c) / 2.0;
+        return math.sqrt(s * (s - self.a) * (s - self.b) * (s - self.c));
+    }
+
+    override fn perimeter(self) -> float {
+        return self.a + self.b + self.c;
+    }
+
+    fn draw(self) {
+        println(f"Drawing triangle sides={self.a},{self.b},{self.c} [{self.color}]");
+    }
+}
+
+// ── Generics ──────────────────────────────────────────────────────────────────
+
+class Stack<T> {
+    var items: []any;
+
+    fn new() -> Stack<T> {
+        return Stack { items: [] };
+    }
+
+    fn push(var self, item: T) {
+        self.items.push(item);
+    }
+
+    fn pop(var self) -> ?T {
+        if self.items.isEmpty() {
+            return none;
+        }
+        return some(self.items.pop());
+    }
+
+    fn peek(self) -> ?T {
+        if self.items.isEmpty() {
+            return none;
+        }
+        return some(self.items.last());
+    }
+
+    fn len(self) -> int {
+        return self.items.len();
+    }
+
+    fn isEmpty(self) -> bool {
+        return self.items.isEmpty();
+    }
+}
+
+// ── Linked List ───────────────────────────────────────────────────────────────
+
+class Node<T> {
+    var value: T;
+    var next: any;  // ?Node<T>
+
+    fn new(value: T) -> Node<T> {
+        return Node { value: value, next: none };
+    }
+}
+
+class LinkedList<T> {
+    var head: any;  // ?Node<T>
+    var size: int;
+
+    fn new() -> LinkedList<T> {
+        return LinkedList { head: none, size: 0 };
+    }
+
+    fn prepend(var self, value: T) {
+        let node = Node.new(value);
+        node.next = self.head;
+        self.head = some(node);
+        self.size += 1;
+    }
+
+    fn toList(self) -> []any {
+        var result = [];
+        var cur = self.head;
+        while !isNone(cur) {
+            match cur {
+                some(node) => {
+                    result.push(node.value);
+                    cur = node.next;
+                },
+                none => break,
+            }
+        }
+        return result;
+    }
+
+    fn len(self) -> int {
+        return self.size;
+    }
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+
+fn main() {
+    println("=== Wakawaka OOP Demo ===\n");
+
+    // Polymorphism via list of shapes
+    var shapes = [
+        Circle.new(5.0, "red"),
+        Rectangle.new(4.0, 6.0, "blue"),
+        Triangle.new(3.0, 4.0, 5.0, "green"),
+    ];
+
+    // Fill first shape
+    shapes[0].fill();
+
+    println("Shapes:");
+    for shape in shapes {
+        shape.draw();
+        println(f"  {shape.describe()}");
+    }
+
+    // Sort by area
+    let by_area = sorted(shapes, key: |s| s.area());
+    println("\nSorted by area:");
+    for s in by_area {
+        println(f"  area = {s.area():.2f}");
+    }
+
+    // Total area
+    let total = shapes.map(|s| s.area()).sum();
+    println(f"\nTotal area: {total:.2f}");
+
+    // Operator overloading
+    println("\n--- Operator Overloading ---");
+    let c1 = Circle.new(3.0, "red");
+    let c2 = Circle.new(4.0, "blue");
+    let c3 = c1 + c2;
+    println(f"c1 == c2: {c1 == c2}");
+    println(f"c1 + c2 radius: {c3.radius}");
+
+    // Generics — Stack
+    println("\n--- Generic Stack ---");
+    var stack = Stack.new();
+    stack.push(1);
+    stack.push(2);
+    stack.push(3);
+    println(f"Stack size: {stack.len()}");
+    println(f"Peek: {stack.peek()}");
+    while !stack.isEmpty() {
+        let top = stack.pop();
+        match top {
+            some(v) => println(f"Popped: {v}"),
+            none    => break,
+        }
+    }
+
+    // Linked List
+    println("\n--- Linked List ---");
+    var ll = LinkedList.new();
+    ll.prepend(3);
+    ll.prepend(2);
+    ll.prepend(1);
+    println(f"List: {ll.toList()}");
+    println(f"Size: {ll.len()}");
+
+    // Rectangle specific method
+    println("\n--- Specific Methods ---");
+    let sq = Rectangle.new(5.0, 5.0, "purple");
+    println(f"Is square: {sq.isSquare()}");
+    let rect = Rectangle.new(3.0, 5.0, "orange");
+    println(f"Is square: {rect.isSquare()}");
+}
+
+main();

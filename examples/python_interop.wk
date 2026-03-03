@@ -1,0 +1,153 @@
+// Deltoo Python Interop Demo
+// Import any Python library directly
+// Run: python deltoo.py run examples/python_interop.dt
+
+fn main() {
+    println("=== Deltoo Python Interoperability ===\n");
+
+    // ── Import Python modules ─────────────────────────────────────────────────
+
+    import python "os";
+    import python "sys";
+    import python "json";
+    import python "hashlib";
+    import python "datetime" as dt;
+
+    // Call Python functions directly
+    println(f"Python version: {sys.version}");
+    println(f"Platform: {sys.platform}");
+    println(f"CWD: {os.getcwd()}");
+
+    // datetime usage
+    let now = dt.datetime.now();
+    println(f"Current time: {now}");
+    println(f"Year: {now.year}");
+    println(f"Month: {now.month}");
+
+    // hashlib
+    let h = hashlib.sha256("hello deltoo".encode());
+    println(f"SHA256: {h.hexdigest()}");
+
+    // ── JSON from Python ──────────────────────────────────────────────────────
+
+    println("\n--- JSON operations ---");
+    import python "json" as pyjson;
+
+    let data = {"name": "Alice", "age": 30, "scores": [95, 87, 92]};
+    let json_str = pyjson.dumps(data, indent: 2);
+    println(f"JSON:\n{json_str}");
+
+    let parsed = pyjson.loads(json_str);
+    println(f"Parsed name: {parsed.name}");
+
+    // ── urllib for HTTP ───────────────────────────────────────────────────────
+
+    println("\n--- HTTP request via urllib ---");
+    import python "urllib.request" as urllib;
+
+    // Small example — get from a public API
+    // (uncomment if you have internet access)
+    // let resp = urllib.urlopen("https://httpbin.org/json");
+    // let body = resp.read().decode("utf-8");
+    // println(f"Response: {body}");
+
+    // ── pyblock — embed raw Python ────────────────────────────────────────────
+
+    println("\n--- PyBlock (raw Python embedded) ---");
+
+    // Variables from Deltoo are accessible inside pyblock
+    let message = "Hello from Deltoo!";
+    let numbers = [1, 2, 3, 4, 5];
+
+    pyblock {
+        import statistics
+        mean_val = statistics.mean(numbers)
+        result = f"Mean of {numbers} = {mean_val}"
+        words = message.split()
+        reversed_msg = " ".join(reversed(words))
+    }
+
+    // Variables defined in pyblock come back to Deltoo
+    println(f"Result: {result}");
+    println(f"Reversed: {reversed_msg}");
+
+    // ── Use Python class from Deltoo ──────────────────────────────────────────
+
+    println("\n--- Python class usage ---");
+    import python "collections" as coll;
+
+    let counter = coll.Counter(["a", "b", "a", "c", "b", "a"]);
+    println(f"Counter: {counter}");
+    println(f"Most common: {counter.most_common(2)}");
+
+    let deque = coll.deque([1, 2, 3]);
+    deque.appendleft(0);
+    deque.append(4);
+    println(f"Deque: {list(deque)}");
+
+    // ── pathlib ───────────────────────────────────────────────────────────────
+
+    println("\n--- pathlib ---");
+    import python "pathlib" as pl;
+
+    let p = pl.Path("examples");
+    println(f"Path exists: {p.exists()}");
+    let dt_files = list(p.glob("*.dt"));
+    println(f"DT files: {dt_files}");
+
+    // ── re — regex ────────────────────────────────────────────────────────────
+
+    println("\n--- Python regex ---");
+    import python "re" as pyre;
+
+    let text = "Contact us at support@deltoo.io or sales@deltoo.io";
+    let email_pattern = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}";
+    let emails = pyre.findall(email_pattern, text);
+    println(f"Found emails: {emails}");
+
+    // ── Expose Deltoo function to Python ──────────────────────────────────────
+
+    println("\n--- Calling Deltoo from Python ---");
+
+    fn deltoo_add(a: int, b: int) -> int {
+        return a + b;
+    }
+
+    fn deltoo_greet(name: str) -> str {
+        return f"Hello, {name} from Deltoo!";
+    }
+
+    // Use pyblock to call our Deltoo functions from Python
+    pyblock {
+        result1 = deltoo_add(10, 20)
+        result2 = deltoo_greet("World")
+        results = [result1, result2]
+    }
+
+    println(f"deltoo_add(10, 20) = {result1}");
+    println(f"deltoo_greet('World') = {result2}");
+
+    // ── NumPy + Deltoo interop ─────────────────────────────────────────────────
+
+    println("\n--- NumPy + Deltoo ---");
+    import python "numpy" as np;
+
+    // Create numpy array in Deltoo
+    let arr = np.array([1.0, 4.0, 9.0, 16.0, 25.0]);
+    let sqrt_arr = np.sqrt(arr);
+    println(f"sqrt({arr}) = {sqrt_arr}");
+
+    // FFT example
+    let signal = np.sin(np.linspace(0, 2 * math.PI, 64));
+    let fft = np.fft.fft(signal);
+    println(f"FFT computed ({len(fft)} coefficients)");
+
+    // Deltoo processes numpy results
+    let magnitudes = list(np.abs(fft));
+    let max_mag = max(magnitudes.map(|x| x as float));
+    println(f"Max FFT magnitude: {max_mag:.2f}");
+
+    println("\nPython interop demo complete!");
+}
+
+main();

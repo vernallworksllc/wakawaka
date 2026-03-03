@@ -1,0 +1,73 @@
+// Wakawaka Shell Integration Demo
+// Shell commands as first-class expressions
+// Run: python deltoo.py run examples/shell_demo.dt
+
+fn main() {
+    println("=== Wakawaka Shell Integration ===\n");
+
+    // Basic shell command — captures stdout
+    let cwd = $`pwd`.trim();
+    println(f"Current directory: {cwd}");
+
+    // List files
+    let listing = $`ls -la`.lines();
+    println(f"\nFiles ({listing.len()} lines):");
+    for line in listing {
+        if line.len() > 0 {
+            println(f"  {line}");
+        }
+    }
+
+    // Safe variable interpolation (auto-escaped, no injection)
+    let filename = "hello.dt";
+    let path = "examples";
+    let contents = $`cat {path}/{filename}`;
+    println(f"\nFirst line of {filename}:");
+    println(contents.lines()[0]);
+
+    // Pipe chains — shell-style pipelines in Wakawaka
+    println("\n--- Pipe Chain ---");
+    let dt_files = $`find examples -name "*.dt"`.trim().lines();
+    println(f"Found {dt_files.len()} .dt files:");
+    for f in dt_files {
+        println(f"  {f}");
+    }
+
+    // Count words in a file
+    let word_count = $`wc -w examples/hello.dt`.trim().split(" ")[0];
+    println(f"\nhello.dt word count: {word_count}");
+
+    // Run Python one-liner via shell
+    let py_result = $`python3 -c "import sys; print(sum(range(10)))"`.trim();
+    println(f"\nPython sum(range(10)) = {py_result}");
+
+    // Environment variables
+    let home = $`echo $HOME`.trim();
+    println(f"\nHOME = {home}");
+
+    // Shell with error handling
+    let check = $`ls /nonexistent 2>/dev/null`.trim();
+    if check.len() == 0 {
+        println("\n/nonexistent: not found (shell returned empty)");
+    }
+
+    // Multi-line shell processing
+    println("\n--- Process listing (top 5) ---");
+    let processes = $`ps aux 2>/dev/null || tasklist 2>/dev/null`.lines();
+    for line in processes.slice(0, 5) {
+        if line.trim().len() > 0 {
+            println(f"  {line}");
+        }
+    }
+
+    // Using shell results in computation
+    println("\n--- Disk usage ---");
+    let df_out = $`df -h . 2>/dev/null`.trim();
+    if df_out.len() > 0 {
+        println(df_out);
+    }
+
+    println("\nShell integration complete!");
+}
+
+main();
