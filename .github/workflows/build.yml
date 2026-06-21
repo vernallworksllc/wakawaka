@@ -62,17 +62,20 @@ jobs:
         with:
           path: artifacts/
 
-      - name: Rename binaries for release
+      - name: Prepare release assets + checksums
         run: |
-          mv artifacts/waka-linux/waka   artifacts/waka-linux
-          mv artifacts/waka-windows/waka.exe artifacts/waka-windows.exe
-          mv artifacts/waka-macos/waka   artifacts/waka-macos
+          mkdir -p release
+          cp artifacts/waka-linux/waka       release/waka-linux
+          cp artifacts/waka-windows/waka.exe release/waka-windows.exe
+          cp artifacts/waka-macos/waka       release/waka-macos
+          cd release
+          for f in waka-linux waka-windows.exe waka-macos; do
+            sha256sum "$f" > "$f.sha256"
+          done
+          ls -la
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            artifacts/waka-linux
-            artifacts/waka-windows.exe
-            artifacts/waka-macos
+          files: release/*
           generate_release_notes: true
